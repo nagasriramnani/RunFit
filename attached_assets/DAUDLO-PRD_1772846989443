@@ -1,0 +1,1210 @@
+# DAUDLO – Product Requirements Document
+## Territory-Based Competitive Running Game for India
+
+**Version:** 1.0  
+**Date:** March 2026  
+**Status:** Pre-launch Development  
+**Target Markets:** Tier 1 Indian Cities (Mumbai, Delhi, Bangalore, Hyderabad, Chennai, Pune)
+
+---
+
+## 1. EXECUTIVE SUMMARY
+
+### What Is DAUDLO?
+DAUDLO is a **territory-based competitive running game** that transforms your city into a live strategy game board. Players earn territory by running closed GPS loops around real-world locations (parks, beaches, neighborhoods, landmarks). Owned zones generate social currency, ongoing threats from rivals, and streaks that must be defended through daily runs.
+
+**One-Line Pitch:** Run through your city, own it.
+
+### The Core Thesis
+Indian Gen Z has zero reason to choose running over scrolling. Fitness apps fail because they:
+- **Strava/Nike Run Club** → Silent tracking, no social urgency
+- **Fitbit/Health apps** → Gamified steps in isolation, feels like obligation
+- **Fitness influencers** → Aspirational but not participatory
+
+DAUDLO solves this by making **running the only input method for a real strategy game played on real maps in real neighborhoods with real friends**. Fitness becomes a side effect of conquest.
+
+### Why Now?
+- Gen Z understands territory mechanics (Clash Royale, Civilization, Risk)
+- Location-based gaming proven at scale (Pokémon GO)
+- India's tier-1 cities have dense, competitive friend groups
+- Running culture is rising (marathons, running clubs, Strava adoption)
+- Mobile-first gaming dominates India (not console-dependent)
+
+---
+
+## 2. MARKET & OPPORTUNITY
+
+### Market Definition
+**Primary:** Indian Gen Z runners and aspiring runners (18–28 years old) in Tier 1 cities  
+**Secondary:** Competitive fitness enthusiasts, gaming communities, friend groups seeking shared activity  
+**Tertiary:** City joggers who run for fitness but lack social motivation
+
+### Market Size Estimate
+- **India urban Gen Z population (18–28):** ~80 million
+- **In Tier 1 cities:** ~25 million
+- **Current regular runners:** ~4% = ~1 million
+- **TAM (aspirational runners + current runners):** ~8–10 million
+- **SAM (reachable in first 3 years, 5 cities):** ~2–3 million
+- **SOM (Year 1 target):** 50,000–100,000 active users
+
+### Competitive Landscape
+
+| Competitor | Strength | Weakness | DAUDLO Edge |
+|---|---|---|---|
+| **Strava** | Massive network, ride-agnostic | No social urgency, leaderboard fatigue | Direct friend rivalry, zones under threat |
+| **Nike Run Club** | Brand prestige, clean UX | Tracking-only, no multiplayer stakes | Real-time territorial conflict |
+| **Fitbit** | Habit tracking, ecosystem | Bubble gaming, no outdoor play | City becomes the game board |
+| **Pokémon GO** | Location-based success | Not connected to activity, fake inputs | GPS speed validation ensures authenticity |
+| **Ingress/Niantic** | Territory mechanics proven | Complex UI, niche audience | Simplified, running-native, friend-focused |
+
+### Why DAUDLO Wins
+1. **Authentic input validation** – 14 km/h speed cap = can't cheat
+2. **Social graph first** – Compete with friends, not leaderboard strangers
+3. **Persistent stakes** – Zones decay, rivals attack, you must show up
+4. **Neighborhood-scale** – Works in every city without requiring massive adoption
+5. **Gaming + fitness fusion** – Appeals to both communities
+
+---
+
+## 3. PRODUCT VISION & STRATEGY
+
+### Vision Statement
+A future where millions of Indians step outside every morning not because they want to be healthy—but because someone is threatening their territory and they're not going to let that happen. Fitness as a side effect. Conquest as the motivation.
+
+### Strategic Pillars
+
+#### Pillar 1: Territory as Social Currency
+Zones aren't achievements—they're **social proof in real-world neighborhoods**. Owning Juhu Beach, Connaught Place, or Marina Drive means something because your friends see it, want it, and will run to take it.
+
+#### Pillar 2: Honest Mechanics
+The 14 km/h rule is the foundation of trust. Every square meter on the map was earned on foot. No vehicles, no spoofing, no paid shortcuts. Running is the only currency.
+
+#### Pillar 3: Daily Habit Loop Through Loss Aversion
+- **Claim** a zone → immediate social win
+- **Zone decays** if you don't run for 24h → fear of loss
+- **Rival attacks** your zones → urgent motivation
+- **Defend** by running your boundary → immediate re-engagement
+- Repeat daily
+
+#### Pillar 4: Scalable Without Critical Mass
+Doesn't need 10 million users to be fun. Works with just 5 friends in one neighborhood. Then spreads to friend groups, then cities, then national rankings.
+
+#### Pillar 5: Gaming Skills Translate to Fitness
+Players who understand strategy (territory management, resource allocation, timing attacks) bring gaming discipline to fitness.
+
+---
+
+## 4. CORE MECHANICS
+
+### 4.1 Claim (Zone Creation)
+
+**What:** Player runs a closed GPS loop around any area. That territory becomes theirs.
+
+**How It Works:**
+- Open app while running
+- Run any closed path (circle, square, irregular boundary around a location)
+- Minimum loop size: 0.5 km (to prevent garage-claiming)
+- Maximum speed: 14 km/h (automatic stop if exceeded)
+- Return to start point: GPS geofence detects closure
+- **Result:** Zone created, player's color assigned, zone name auto-generated or player-named
+
+**Zone Properties:**
+- **Owner:** User who claimed it
+- **Zone Color:** Assigned to user profile (can customize)
+- **Zone Health:** Starts at 100%
+- **Geometry:** Exact GPS boundary of the loop
+- **Claimed At:** Timestamp
+- **Current Streak:** Days defended without break
+- **Size:** Square km or radius equivalents
+- **Name:** Location name (if landmark) or user-assigned
+
+**Gameplay Implications:**
+- Bigger loops = harder to defend, larger territory
+- Popular spots create competition (multiple players want same area)
+- Iconic landmarks create prestige value
+
+---
+
+### 4.2 Attack (Territorial Theft)
+
+**What:** Rival runs through your zone boundary. Every km they cover reduces your zone health.
+
+**How It Works:**
+
+**Attack Initiation:**
+- Attacker opens app and runs
+- Enters target zone boundary (GPS geofence detection)
+- App shows "Zone detected: [Owner Name] - [Zone Name]"
+- Real-time notification sent to **defender** (if online) and queued if offline
+- **Zone status changes to "Under Attack"**
+
+**Attack Progress:**
+- Every 0.1 km attacker covers = 1% zone health reduction
+- Attacker must cover **full boundary distance** to steal
+  - 5 km boundary = attacker needs 5 km attack = 100% health drain = zone stolen
+- Attacker can pause/stop mid-attack (progress saved for return attempt)
+- Attack window: Persistent until completion OR defender restores health
+
+**Attack Success Condition:**
+- Zone health reaches 0% → Zone ownership transfers to attacker
+- Zone color changes to attacker's color
+- Defender's name removed from zone
+- Attack logged in territory history
+
+**Attack Failure Scenarios:**
+- Defender runs the same loop boundary during attack → **health restored**
+- Defender runs extra distance beyond loop → health bonus (up to 120%)
+- Attacker exceeds 14 km/h → **attack resets**, progress lost
+- 7 days pass without attacker returning → Attack expires, progress lost
+
+**Notifications:**
+- **Defender (real-time):** "Rohit is attacking your Dadar zone! 40% health remaining"
+- **Attacker (real-time):** "You've covered 2.5 km of Rohit's zone. 50% until capture"
+- **Both:** "Rohit stole your Dadar zone!" (if successful)
+
+**Strategic Depth:**
+- Attacker decides: finish now or come back later?
+- Defender decides: defend now or lose the zone?
+- Both races against game systems (decay, streaks)
+
+---
+
+### 4.3 Defend (Zone Restoration)
+
+**What:** When under attack or losing health, player runs their own zone loop to restore health.
+
+**How It Works:**
+
+**Defend Activation:**
+- Player receives notification: "[Rival Name] is attacking [Zone Name]"
+- Player opens app → sees zone on map, shows current health %
+- Player runs the same loop boundary (can start anywhere on boundary, must complete full circuit)
+- GPS validates: user covers minimum 90% of original loop distance (slight variation allowed)
+- Every km covered = 5% health restoration (minimum)
+
+**Defense Success:**
+- Zone health restored toward 100%
+- If health was at 50% and player runs 5km boundary = +25% health = 75% total
+- If health was at 90% and player defends = caps at 100%
+- **Streak continues** (defined below)
+
+**Defense During Attack:**
+- Special case: While rival is mid-attack, defender runs same loop
+- **Head-to-head mechanic:** Both are running simultaneously
+- Whoever completes more of the boundary wins the contested km
+  - Defender restores health for their % covered
+  - Attacker's progress reduced by defender's %
+- Creates real-time competitive tension
+
+---
+
+### 4.4 Decay (Entropy System)
+
+**What:** Zones slowly lose health if not maintained. Forces daily engagement.
+
+**How It Works:**
+
+**Decay Schedule:**
+- Every 24 hours: 2% zone health loss (if no activity)
+- Every 48 hours: 4% additional loss (cumulative)
+- Every 72 hours: 6% additional loss (cumulative)
+- **Total after 72 hours:** 12% health loss with zero runs
+
+**Decay Mechanics:**
+- Decay pauses if player runs their zone boundary (any zone)
+- Running ANY zone boundary → restarts decay timer for ALL zones
+- Longer streak = slower decay rate
+  - 7-day streak: -1.5% per day
+  - 30-day streak: -0.5% per day
+  - Break streak: returns to default -2% decay
+
+**Game Design Purpose:**
+- Ensures daily motivation (must run to maintain territory)
+- Prevents "own it forever" passive gameplay
+- Creates urgency without artificial timers
+- Rewards consistency through streak decay reduction
+
+---
+
+### 4.5 Streak System (Consistency Reward)
+
+**What:** Consecutive days of running a zone boundary. Longer streaks grant zone stability.
+
+**How It Works:**
+
+**Streak Tracking:**
+- Day 1 run: Streak = 1
+- Day 2 run: Streak = 2
+- ...
+- Day 30 run: Streak = 30
+- **Miss one day:** Streak resets to 0
+
+**Streak Benefits:**
+| Streak Days | Zone Health Boost | Decay Reduction | Visual Badge |
+|---|---|---|---|
+| 1–3 days | +0% | -2% / day (normal) | 🔥 (bronze) |
+| 4–7 days | +5% | -1.5% / day | 🔥🔥 (silver) |
+| 8–14 days | +10% | -1% / day | 🔥🔥🔥 (gold) |
+| 15–30 days | +15% | -0.5% / day | 👑 (platinum) |
+| 30+ days | +20% | -0.25% / day | 💎 (diamond) |
+
+**Streak Loss:**
+- Miss running any day → all streaks reset to 0
+- Grace period: None (harsh penalty encourages daily habit)
+- Comeback: Run next day = streak restarts at 1
+
+**Psychological Design:**
+- Fear of losing streak = addiction
+- Visual badges show competence to friends
+- 14-day mark = habit formation + visible status
+- 30-day mark = elite status in friend group
+
+---
+
+### 4.6 The 14 km/h Speed Cap (Trust Mechanism)
+
+**What:** No input tracked above 14 km/h. Cannot cheat with vehicles.
+
+**How It Works:**
+
+**GPS Validation:**
+- App continuously monitors GPS speed during run
+- If speed > 14 km/h:
+  - **Tracking pauses**
+  - No km credited
+  - No zone claimed/attacked/defended
+  - Message: "Slow down—cycling/vehicles don't count"
+  
+- If speed drops below 14 km/h again:
+  - **Tracking resumes**
+  - Km resume from pause point
+
+**Why 14 km/h?**
+- ~8.7 mph = elite runner pace (~7-minute mile)
+- Sustainable by strong runners, impossible by casual joggers with cycles
+- Most cycles travel 18–25 km/h (clear enforcement)
+- All vehicles exceed this (cars, bikes, scooters)
+- Accessible to aspiring runners (not hobbyist-only)
+
+**Trust Guarantees:**
+- Every meter on map = earned on foot
+- Leaderboards are honest
+- Zones represent real running effort
+- No pay-to-win zone claiming with vehicles
+
+**Edge Cases:**
+- Downhill sprints → App allows 14 km/h ±0.5 buffer (brief overages allowed)
+- Drafting/wind assistance → Tracked honestly (not penalized)
+- Stroller pushing → Works fine (speed stays under 14 km/h)
+
+---
+
+## 5. USER FLOWS & CORE SCENARIOS
+
+### Scenario 1: New Player's First Run
+
+**Day 1—Friday Evening (6:30 PM)**
+
+1. **Sign up:** Phone number + name + friend invite (optional)
+2. **Tutorial (2 min):** "Your city is your kingdom. Run territory. Defend it. Own it."
+3. **Permission grant:** Location (always-on while app running), fitness (health kit sync)
+4. **First run:** Player goes for a casual 2 km run in their neighborhood (Marine Drive, Mumbai)
+5. **Return to start:** Completes loop → "Zone Claimed! You own Marine Drive"
+   - Zone appears on map in player's color
+   - "Invite friends to challenge you" prompt
+6. **Notifications:** App suggests inviting friends who run in the area
+
+---
+
+### Scenario 2: The Attack—Real-Time Competitive Play
+
+**Day 2—Saturday Morning (7:00 AM)**
+
+**Attacker's perspective (Rohit):**
+- Opens app, sees friend Zara owns Marine Drive
+- Decides to attack it
+- Starts run along Marine Drive boundary
+- After 0.5 km: Notification: "You're attacking Zara's Marine Drive zone. 50% until capture"
+- Zara gets real-time alert: "Rohit is attacking your Marine Drive! Get running!"
+
+**Defender's perspective (Zara):**
+- Receives push notification while doing chores
+- Opens app → sees Rohit has covered 0.5 km of her 1 km loop (50% captured)
+- Immediately puts shoes on, starts running her own Marine Drive boundary
+- Race begins: Rohit vs Zara in real-time
+
+**Outcome:**
+- Zara covers 0.6 km of her boundary = restores 3% health + negates 0.6 km of Rohit's attack
+- Rohit covers total 0.9 km = 90% zone health remaining
+- Rohit stops his run; Zara's zone still under attack but healthier
+- Next day, Rohit resumes attack where he left off OR Zara runs again to fully defend
+
+**Emotional Arc:**
+- Rohit: "I almost had it! One more 0.1 km push tomorrow"
+- Zara: "That was close. I need to do a longer run tomorrow to full-defend"
+- Both now highly motivated for next run
+
+---
+
+### Scenario 3: The Stolen Zone—Defeat & Motivation to Win Back
+
+**Day 4—Monday Morning (6:00 AM)**
+
+- Rohit completes his attack on Marine Drive (covers full 1 km boundary)
+- Zara has not run in 2 days (zone decayed 4%, then attacked to 0%)
+- **Marine Drive stolen**: Zone now shows Rohit's color
+- Zara's name removed from map
+
+**Zara's Immediate Actions:**
+- Receives notification: "Rohit stole your Marine Drive zone"
+- Opens app → sees her zone is now teal (Rohit's color)
+- Immediate motivation: "I'm getting it back today"
+- Goes for a run → runs Marine Drive boundary
+- **New dynamic:** Now Zara is the attacker; Rohit must defend
+
+**10 Days Later:**
+- Marine Drive has changed hands 3 times (Zara → Rohit → Zara → Rohit)
+- Both have 15+ day running streaks from daily attacks/defenses
+- Have become best running partners despite being rivals
+- Zone has become legendary in their friend group
+
+---
+
+### Scenario 4: Squad Play—Team Territory War
+
+**Week 3 – Multiple Friend Groups**
+
+**Mumbai Gaming Squad (5 friends):**
+- Claimed zones: Bandra, Worli, Marine Drive, Dadar, Powai
+- Own 15 km² of Mumbai collectively
+- Organize "squad runs" (all 5 run together, multiple zones attacked simultaneously)
+
+**Delhi Rivals (different friend group):**
+- Claimed zones: Connaught Place, Lodi Garden, Nehru Place
+- See Mumbai squad's territory on global leaderboard
+- Challenge: "Come run Delhi—see if you can hold Connaught Place against us"
+
+**Inter-city Championship (Month 2):**
+- Mumbai squad makes trip to Delhi
+- Each runs to attack Delhi zones
+- Delhi squad defends live
+- Real-time multi-city competitive running event
+- Tournament scoring, real prizes
+
+---
+
+## 6. USER INTERFACE & INFORMATION ARCHITECTURE
+
+### Core Screens
+
+#### 1. Home / Map View (Primary)
+**Purpose:** Show current territory, active threats, upcoming opportunities
+
+**Elements:**
+- **Full-screen map** (Google Maps base layer)
+- **Color-coded zones** (each user's color)
+- **Zone info on tap:**
+  - Owner name
+  - Zone health bar (%)
+  - Days held
+  - Streak badge
+  - "Attack" / "Defend" buttons
+- **User's avatar** (pulsing location)
+- **Bottom sheet:** Active threats, current run status
+- **Notifications banner** (zone under attack, zones decayed)
+
+**Interactions:**
+- Tap zone → details popup
+- Tap "Attack" → Start running
+- Tap "Defend" → Start running
+- Long-press zone → Claim new overlapping zone
+- Swipe up → See all owned zones
+
+---
+
+#### 2. Profile / Territory Dashboard
+
+**Elements:**
+- **Profile card** (name, avatar, current streak days, total zones owned, total km run)
+- **Territory stats:**
+  - Zones owned (count, total area)
+  - Zones lost (last 7 days)
+  - Current defending (active attacks)
+  - Win-loss ratio vs friend group
+- **Streak display** (visual badge + days)
+- **Zone list:**
+  - Each zone: name, health %, days held, last run time
+  - Sort by: health, size, streak, threat level
+
+**Actions:**
+- Invite friends
+- View "War Report" (AI-generated weekly summary)
+- See territory history (claimed/lost timeline)
+- Customize profile color
+
+---
+
+#### 3. Friends / Squad View
+
+**Elements:**
+- **Friend list** (all contacts who play + their territories)
+- **Live activity:** Where are they running?
+- **Head-to-head stats:**
+  - Total territories held
+  - Zones stolen from each other
+  - Head-to-head Win-Loss record
+- **Squad squads (if applicable)**
+  - Squad name, members, collective territories
+  - Squad leaderboard vs other squads
+
+**Actions:**
+- Challenge friend to attack specific zone
+- Join squad
+- Spectate live run
+
+---
+
+#### 4. Leaderboard / Rankings
+
+**Sections:**
+- **City Leaderboard** (most territories owned in current city)
+- **National Leaderboard** (total territories across all India)
+- **Streak Leaderboard** (longest current streaks)
+- **Squad Rankings** (squads with most collective territory)
+- **"Trending Zones"** (most-fought-over, most-defended)
+
+**Data Shown:**
+- Rank, player name, territory count, km run this month, streak length
+- Tap to see their specific zones on map
+
+---
+
+#### 5. AI Coach / War Room
+
+**Purpose:** Personalized strategic coaching + insights
+
+**Elements:**
+- **Threat Assessment:**
+  - "Rohit has attacked your Dadar zone twice this week—he's hunting it"
+  - "Your Worli zone is at 40% health—defend it today"
+  - "3 undefended zones in danger—pick which to save"
+
+- **Opportunity Score:**
+  - "Bandra zone (unclaimed) is 2 km from your home—easy claim"
+  - "Marina Drive is at 20% health—now is the time to attack"
+  - "Recommended zone targets for your skill level"
+
+- **Weekly War Report:**
+  - "You won 3 territories this week, lost 2. Net: +1"
+  - "Best win: Stole Marina Drive from Zara (high prestige)"
+  - "Next week: Focus on defending your streak in Powai"
+
+- **Post-Run Debrief:**
+  - Pace, distance, zone impact
+  - "Your attack is 0.2 km from stealing Dadar! One more run?"
+  - "You defended Worli perfectly. Streak extended to 12 days"
+
+---
+
+#### 6. Notifications / Live Activity
+
+**Push Notifications:**
+- "[Friend name] is attacking your [zone name]!" (real-time during their run)
+- "[Friend name] stole your [zone name]"
+- "Your [zone name] is decaying—run to defend it"
+- "[Zone name] is now undefended—perfect time to attack!"
+- "You have a 10-day streak! 🔥 Keep it alive"
+
+**In-App Notifications:**
+- Persistent live counter during attacks/defenses
+- Historical log of territory changes
+
+---
+
+### Design System & Visual Language
+
+**Color Palette:**
+- **Primary:** Energy teal (for zones, highlights, CTAs)
+- **User colors:** 12 distinct, vibrant colors assignable to user profiles (each sees their own zones in their assigned color)
+- **Health states:**
+  - 75–100%: Vibrant + full opacity
+  - 50–75%: Vibrant + 75% opacity
+  - 25–50%: Vibrant + 50% opacity, slight fade
+  - 0–25%: Muted + 25% opacity, translucent (almost captured)
+  - 0% / Stolen: Dimmed completely
+
+**Typography:**
+- Headers: Bold, energetic
+- Zone names: Clear, readable on map
+- Stats: Numeric, scannable
+
+**Iconography:**
+- Running figure (core action)
+- Shield (defend)
+- Sword (attack)
+- Fire (streak)
+- Map pin (territory)
+- Clock (time-sensitive actions)
+
+---
+
+## 7. TECHNICAL ARCHITECTURE
+
+### Tech Stack
+
+**Frontend (Mobile):**
+- **iOS/Android:** React Native (cross-platform) or native (iOS SwiftUI, Android Compose)
+- **Map library:** Google Maps SDK with custom zone rendering
+- **Real-time updates:** WebSocket for live notifications
+
+**Backend:**
+- **Server:** Node.js + Express / Python + FastAPI
+- **Database:** PostgreSQL (relational) + Redis (real-time, caching)
+- **Geospatial:** PostGIS (zone boundary queries, overlap detection)
+- **Message queue:** RabbitMQ (background jobs, notifications)
+
+**Infrastructure:**
+- **Hosting:** AWS / Google Cloud
+- **CDN:** CloudFlare
+- **Storage:** AWS S3 (history logs, replays)
+- **Analytics:** Segment / Mixpanel (user behavior tracking)
+
+**AI/ML:**
+- **Threat detection:** ML model trained on zone defense patterns
+- **Recommendation engine:** Which zones to attack based on user behavior
+- **Streak analytics:** Predict zone decay, optimal defense timing
+
+---
+
+### Core Data Models
+
+**User:**
+```
+{
+  id: UUID,
+  phone_number: string (unique),
+  name: string,
+  profile_color: enum (12 colors),
+  avatar_url: string,
+  current_streak: int (days),
+  total_zones_owned: int,
+  total_km_run: float,
+  friends: [User.id],
+  squads: [Squad.id],
+  created_at: timestamp,
+  last_run_at: timestamp
+}
+```
+
+**Zone:**
+```
+{
+  id: UUID,
+  owner_id: User.id,
+  name: string,
+  boundary_geometry: GeoJSON (polygon),
+  boundary_perimeter: float (km),
+  health_percentage: float (0-100),
+  color: string (owner's profile_color),
+  current_streak: int (days defended),
+  claimed_at: timestamp,
+  last_defended_at: timestamp,
+  last_attacked_by: [User.id] (history),
+  under_attack: bool,
+  active_attacker_id: User.id (if under attack)
+}
+```
+
+**Attack Event:**
+```
+{
+  id: UUID,
+  attacker_id: User.id,
+  zone_id: Zone.id,
+  started_at: timestamp,
+  distance_covered_km: float,
+  health_damage_percent: float,
+  status: enum (in_progress, abandoned, completed_success, completed_fail),
+  completed_at: timestamp (if applicable),
+  defender_intervention_runs: [Run.id] (overlapping defenses)
+}
+```
+
+**Run:**
+```
+{
+  id: UUID,
+  user_id: User.id,
+  started_at: timestamp,
+  ended_at: timestamp,
+  distance_km: float,
+  average_pace_kph: float,
+  gps_trace: [GeoJSON Points],
+  zones_intersected: [Zone.id],
+  action_type: enum (claim, attack, defend),
+  zones_impacted: {zone_id: health_change},
+  streak_maintained: bool
+}
+```
+
+---
+
+### Real-Time Mechanics Engine
+
+**Attack During Defense (Head-to-Head):**
+1. Attacker GPS point recorded every 5 seconds
+2. Distance calculated, health damage applied
+3. Simultaneously, defender GPS points tracked
+4. Zone health updated in real-time
+5. WebSocket broadcasts to both users + friends watching
+
+**Decay & Streak Processing (Background Job):**
+- Every midnight (user's timezone):
+  - Check if user ran any zone in last 24h
+  - If NO: Apply decay (-2% + any accumulated penalties)
+  - If YES: Increment streak counter, apply streak bonuses
+  - Update all user's zones
+
+**Notification Priority:**
+1. **Real-time** (WebSocket): Zone under attack, zone stolen, streak broken
+2. **Delayed** (30 min batching): Friends' zone activities, leaderboard changes
+3. **Daily digest** (8 AM): War report, threat assessment, opportunity score
+
+---
+
+## 8. AI COACH & PERSONALIZATION
+
+### AI War Room Features
+
+#### 1. Threat Detection
+**What:** Identify which rivals are targeting your zones
+
+**How:**
+- Track rival's recent runs
+- If >2 runs near your zone boundary → flagged as "threat"
+- Calculate attack likelihood (based on pattern history)
+- Alert: "[Friend] is hunting your [Zone]—4 runs this week nearby"
+
+**Data inputs:**
+- Rival's zones nearby
+- Rival's recent runs (GPS patterns)
+- Rival's win-loss vs you
+- Time of day patterns
+
+---
+
+#### 2. Zone Scoring & Recommendations
+**What:** AI rates which zones are worth attacking strategically
+
+**Scoring factors:**
+- **Prestige:** Landmark zones (Connaught Place > random park) = higher score
+- **Vulnerability:** Zones at <50% health = easier targets
+- **Distance:** Zones near user's home/work = practical
+- **Rivalry factor:** Zones owned by rival friends = high motivation
+- **Opportunity window:** Defender on vacation / low activity = attack now
+- **Reward:** Defending requires effort; reward with high-prestige zones
+
+**Example:**
+- Marina Drive: Prestige 9/10, Health 60%, Distance 2 km, Owned by rival = Score 8.2/10
+- Random park: Prestige 2/10, Health 90%, Distance 5 km, Neutral = Score 2.1/10
+
+---
+
+#### 3. Weekly War Report
+**What:** Personalized narrative summary delivered every Sunday
+
+**Format:**
+```
+═══════════════════════════════════════════
+       YOUR TERRITORY REPORT – WEEK 2
+═══════════════════════════════════════════
+
+🏆 VICTORIES
+ • You claimed Bandra (defeated no prior owner)
+ • You stole Marina Drive from Zara
+ • You defended Powai against Rohit (3 times!)
+ 
+ Net: +1 territory | Prestige: +250 points
+
+💔 LOSSES
+ • Zara stole back Marina Drive (she's relentless!)
+ • Dadar lost to decay (you missed 3 days)
+ 
+ Net: -1 territory | Prestige: -100 points
+
+🎯 COMING UP
+ • Rohit's zones at 40% health—vulnerable now
+ • Your Worli zone needs defending (3 days held)
+ • Zara's 7-day streak—challenge her best zone
+ 
+📊 STATS
+ • Miles run: 45 km
+ • Zones held: 6
+ • Current streak: 8 days 🔥
+ • Rival head-to-head: 4W, 2L vs Zara
+```
+
+---
+
+#### 4. Post-Run AI Debrief
+**What:** Immediate insight after every run
+
+**Triggered:** User completes run and returns to app
+
+**Example debrief:**
+```
+🏃 RUN COMPLETE
+
+Distance: 5.2 km
+Pace: 7:45/km (strong!)
+Impact: Defended Marina Drive (+30% health)
+
+✅ GREAT RUN!
+ • You defended your zone before it hit 30%
+ • Your 8-day streak is alive—impressive!
+ 
+🎯 NEXT OPPORTUNITY
+ • Your Dadar zone is at 50% health
+ • Run it tomorrow to push it to 75%
+ • Rohit has attacked it 2x this week—he wants it
+ 
+💡 TIP
+ • For a strategic win, focus on defending high-prestige
+   zones (Connaught Place, Marina Drive) over quantity
+ • 3 defended zones > 10 neglected zones
+```
+
+---
+
+### Personalization Engine
+
+**Player Profiling:**
+- **Play style:** Aggressive attacker / Defensive defender / Balanced
+- **Activity level:** Casual (3–4 runs/week) / Regular (5–6 runs/week) / Elite (daily)
+- **Social preference:** Solo / Squad-focused / Friend-competitive
+- **Motivation:** Prestige-seeking / Streak-obsessed / Territory maximizer
+
+**Adaptive Recommendations:**
+- **Aggressive attackers:** Surface vulnerable high-prestige zones
+- **Defensive players:** Alert threats early, suggest strengthening zones
+- **Squad players:** Group zone opportunities, squad challenges
+- **Casual players:** Simpler mechanics, slower decay, lower pressure
+
+**Difficulty Tuning:**
+- New players: Smaller zones, slower decay, friendlier AI threats
+- 30+ day streaks: Harder competitors suggested, decay accelerates
+- Elite players: National leaderboard prominence, inter-city challenges
+
+---
+
+## 9. MONETIZATION STRATEGY
+
+### Free-to-Play Core (No Pay-to-Win)
+
+**Core gameplay 100% free:**
+- Create unlimited zones ✅
+- Attack any zone ✅
+- Defend zones ✅
+- View city leaderboards ✅
+- Play with friends ✅
+
+---
+
+### Revenue Streams (Never Breaking Game Balance)
+
+#### 1. **Cosmetic Zone Skins** ($1–3 per zone theme)
+- Zone design: Neon, retro, cyberpunk, nature, landmarks
+- Visual only—doesn't affect gameplay
+- Example: "Cyber Glow" skin turns Marine Drive into neon-lit territory
+- **Revenue estimate:** 10% of monthly active users × $2 = $20k/month (at 100k MAU)
+
+---
+
+#### 2. **Premium Analytics & Coaching** ($4.99/month or $49.99/year)
+**Includes:**
+- Advanced threat detection (predict rival attacks 24h in advance)
+- Zone scoring recommendations (AI picks top 5 zones to attack this week)
+- Weekly war report with strategic coaching
+- Historical zone statistics (longest-held zones, prestige earned)
+- Seasonal performance trends
+
+**Not included:**
+- Gameplay advantages
+- Faster runs (can't affect 14 km/h rule)
+- Zone protection (still vulnerable to attacks)
+
+**Revenue estimate:** 8% of MAU × $4.99/month = $39,920/month (at 100k MAU)
+
+---
+
+#### 3. **Tournament Entry Fees** ($5–10 per tournament)
+**Tournaments:**
+- Weekly City Championships (Friday–Sunday)
+  - Compete for most territories gained in 48 hours
+  - Entry: $5
+  - Prize pool: $500 (top 10 players)
+  
+- Monthly Prestige Tournaments
+  - Entry: $10
+  - Prize pool: $5,000
+  - Ranked tiers (bronze, silver, gold, platinum)
+
+- Inter-city Tournaments (seasonal)
+  - Mumbai vs Delhi vs Bangalore squad battles
+  - Entry: $20 per squad
+  - Prize pool: $50,000+
+
+**Revenue estimate:** 5% of MAU × $5/month average = $25k/month
+
+---
+
+#### 4. **Sponsor Zone Cosmetics & Brand Partnerships**
+
+**What:** Nike sponsors "Nike Run Hub" zone in each city. Players claim it, it has Nike branding, completing runs inside grants bonus Strava sync or Nike app integration.
+
+**Commercial model:**
+- Nike pays DAUDLO $50k–$100k/month for presence in 5 cities
+- Players get added engagement (cross-app notifications)
+- Nike gets authentic runners' data (anonymized)
+- Non-intrusive (no ads, doesn't break zone integrity)
+
+**Other potential sponsors:**
+- Reebok, Adidas (running gear)
+- GU Energy (nutrition)
+- Local running clubs, gyms
+- City tourism boards ("Claim the Gateway of India zone!")
+
+**Revenue estimate:** $300k–$500k/month at scale
+
+---
+
+#### 5. **Squad Premium Packs** ($2.99/month)
+**Includes:**
+- Squad leaderboards vs other squads
+- Shared squad treasury (earned points across members)
+- Squad-wide benefits: shared AI threat alerts, collective war reports
+- Squad shop: cosmetics, badges, clan colors
+
+**Not included:**
+- Gameplay advantages for members
+- Faster zone claiming
+- Reduced decay (defeats core mechanic)
+
+**Revenue estimate:** 15% of MAU in squads × $2.99/month = $44,850/month
+
+---
+
+### Monetization Philosophy
+**Core Rule:** Revenue must NEVER break the 14 km/h honest rule or create "pay-to-own" territory advantage.
+
+**Acceptable:**
+- Cosmetics (visual only)
+- Analytics (information only)
+- Tournament entry (equal competition)
+- Sponsorships (non-intrusive)
+- Squad social (non-competitive advantage)
+
+**Never:**
+- "Instant zone claim" (pay 10 rupees)
+- "Zone shield" (pay to prevent attacks)
+- "Speed boost" (breaks 14 km/h rule)
+- "Decay pause" (breaks core mechanic)
+
+---
+
+### Revenue Projections (3-Year Horizon)
+
+| Year | MAU | ARPU/Month | Monthly Revenue | Annual Revenue |
+|---|---|---|---|---|
+| **Year 1** | 100k | $2.50 | $250k | $3M |
+| **Year 2** | 500k | $3.00 | $1.5M | $18M |
+| **Year 3** | 2M | $3.50 | $7M | $84M |
+
+*Assumptions: 30% MAU-to-paying-user conversion, retention curve, sponsor growth*
+
+---
+
+## 10. LAUNCH STRATEGY
+
+### Phase 1: Soft Launch (Month 1–2)
+**Target:** 50k users in 2–3 cities
+
+**Cities:** Mumbai, Bangalore, Delhi (highest running culture + Gen Z density)
+
+**Channels:**
+- Strava community posts (paid partnerships with influencers)
+- Running clubs (embassy to clubs, offer free premium for members)
+- Instagram targeted ads (fitness + gaming audiences)
+- Friend referral loops (invite 3 friends = cosmetic unlock)
+
+**Goals:**
+- Validate core mechanics
+- Stress-test servers (real GPS data, real zones)
+- Gather user feedback (qualitative + quantitative)
+- Build community (Discord, Instagram for awareness)
+
+**Metrics to track:**
+- Daily active users (target: 50% of signups)
+- Retention (D7: 40%, D30: 20%)
+- Zones created per player (target: 2–3)
+- Average km per day (target: 4–5 km)
+
+---
+
+### Phase 2: Rapid Expansion (Month 3–6)
+**Target:** 300k users in 8 cities
+
+**New cities:** Hyderabad, Chennai, Pune, Kolkata + secondary Mumbai/Delhi areas
+
+**Growth tactics:**
+- Launch referral program (earn cosmetics for invites)
+- Partner with local gyms, running clubs
+- Sponsor local marathons (DAUDLO challenge bracket)
+- Influencer tours (YouTubers visit cities, stream runs, compete)
+
+**Product upgrades:**
+- Squad functionality (squads compete across cities)
+- AI War Room (threat detection, recommendations)
+- Weekly leaderboards (social pressure boost)
+- Inter-city challenges (Mumbai squad challenges Delhi squad)
+
+---
+
+### Phase 3: National Scale (Month 7–12)
+**Target:** 1M users across 15+ Indian cities
+
+**Growth tactics:**
+- National Championship series (quarterly tournaments)
+- Celebrity runners join (Bollywood, sports figures)
+- Media coverage (Tech + Sports press)
+- School / college gaming clubs (campus territories)
+- Merchandise (DAUDLO t-shirts, stickers for top players)
+
+---
+
+## 11. SUCCESS METRICS & KPIs
+
+### Engagement Metrics
+- **Daily Active Users (DAU):** Target 50% of MAU
+- **Session length:** Target 12–15 min/day
+- **Runs per day per user:** Target 4–5 km/day (min 2 runs/week to be active)
+- **Zones created per user:** Target 2–5 zones in first month
+
+### Retention Metrics
+- **D1 retention:** 60% (first 24h)
+- **D7 retention:** 40% (first week crucial)
+- **D30 retention:** 20% (habit formation marker)
+- **D90 retention:** 12% (long-term engagement)
+
+### Monetization Metrics
+- **Conversion rate:** 10–15% free-to-paying
+- **ARPU:** $2–4 per monthly active user
+- **LTV:** $50–100 per user (12+ month lifetime)
+- **Payback period:** 2–3 months (via ads + sponsorships)
+
+### Network Metrics
+- **% players with friends in app:** 80%+ (social graph critical)
+- **Avg friend count per player:** 8–15 friends
+- **Zones attacked per zone per week:** 2–3 (active competition)
+- **% zones under attack at any time:** 15–20% (live stakes)
+
+### Community Health
+- **Churn rate:** <3% monthly (habit formation target)
+- **Support tickets per 1000 MAU:** <50 (smooth experience)
+- **In-app reviews:** 4.5+ stars (iOS App Store)
+- **Discord community size:** 10–20% of MAU
+
+### Business Metrics
+- **CAC (Customer Acquisition Cost):** <$1 via organic + referral
+- **LTV:CAC ratio:** >50:1 (healthy unit economics)
+- **Monthly revenue growth:** 25–35%
+- **Cost of goods sold (servers, infrastructure):** <20% of revenue
+
+---
+
+## 12. COMPETITIVE ADVANTAGES & DEFENSIBILITY
+
+### Why DAUDLO Cannot Be Easily Copied
+
+1. **The 14 km/h Rule** – Locked into running (no vehicle shortcuts possible)
+   - Defensible: Patent GPS speed validation + zone claiming algorithm
+   - Competitors must reimplement from scratch; can't copy maps
+
+2. **Social Graph Lock-In** – Territories tied to friend groups
+   - User-generated content (millions of player-claimed zones)
+   - Network effect: leaving means starting over
+   - Defensible: Community + territory history
+
+3. **Early-Mover Network Effect** – First to claimed territories wins
+   - Mumbai's Marine Drive = Zara's forever if she's first
+   - Late entrants get "leftover" zones or must displace early players
+   - Creates retention moat (players defend what they've built)
+
+4. **City-Scale Gameplay** – Works without massive critical mass
+   - Unlike Pokémon GO (needs millions per city), works with 5 friends in 1 neighborhood
+   - Defensible: Reduces competitive pressure to replicate quickly
+
+5. **Data Moat** – GPS traces from millions of daily runs
+   - Know every street, every running route, every popular zone
+   - Can build AI that others can't replicate quickly
+   - Defensible: Temporal data advantage (6–12 months ahead)
+
+6. **Gameplay Innovation** – Territory decay + streak system is novel
+   - Creates persistent daily motivation (not replicated by Strava, Nike Run Club)
+   - Patent-eligible game mechanics
+   - Defensible: 12–18 month patent timeline
+
+---
+
+## 13. RISKS & MITIGATION
+
+### Risk 1: User Adoption Plateau (Not Reaching 100k MAU)
+
+**Why it happens:**
+- Running culture in India still nascent vs mobile gaming
+- Requires 2+ friends to be fun (network effect dependency)
+- Fitness-gaming hybrid may not resonate
+
+**Mitigation:**
+- Partner with running clubs + gym chains (pre-seeded communities)
+- Sponsor marathons, running events (awareness)
+- Focus on friend-group propagation (5 friends = fun; 1 player = boring)
+- A/B test cosmetics, tournaments to drive engagement
+
+---
+
+### Risk 2: GPS Spoofing & Cheating
+
+**Why it matters:**
+- If players can fake runs, zone integrity collapses
+- Trust is the entire game foundation
+
+**Mitigation:**
+- Implement motion validation (accelerometer + barometer + GPS cross-check)
+- Require Strava/Apple Health integration (third-party validation)
+- Machine learning model flags suspicious patterns (same exact route every day, impossible pace)
+- Community reporting (players report cheaters, review manually)
+- Hard bans for confirmed spoofing (zero tolerance)
+
+---
+
+### Risk 3: Injury & Safety Liability
+
+**Why it matters:**
+- Players encouraged to run daily in unfamiliar areas
+- Injuries, accidents, traffic incidents possible
+- Legal liability
+
+**Mitigation:**
+- Terms of service: "Running is individual choice, not mandatory"
+- In-app safety tips: "Run in daylight, busy areas, with friends"
+- Liability waivers (standard fitness app)
+- Insurance: Public liability coverage
+- Community moderation: Flag dangerous zone locations (highways, isolated areas)
+
+---
+
+### Risk 4: Server Costs / Scaling (Infrastructure Burn)
+
+**Why it happens:**
+- Real-time GPS tracking (1000s of concurrent runs)
+- Persistent map rendering (city-scale)
+- Expensive cloud compute
+
+**Mitigation:**
+- Use geospatial databases (PostGIS) for efficient zone queries
+- Edge caching (zone data cached locally on device)
+- Batch processing (don't calculate every attack in real-time; batch every 30 sec)
+- Progressive rollout (cap DAU per city, scale gradually)
+- Revenue before scaling (launch with monetization Day 1)
+
+---
+
+### Risk 5: Retention Collapse (High Churn After Month 1)
+
+**Why it happens:**
+- Streak breaks → feels like failure → quit
+- Zones stolen repeatedly → demotivating
+- Fitness requires effort (running is hard)
+
+**Mitigation:**
+- Careful streak design: Grace periods, low penalties for casual players
+- Matchmaking: New players face other new players, not elites
+- Comeback mechanics: Can reclaim stolen zones (makes comeback viable)
+- Celebration systems: Celebrate streaks, achievements, comebacks
+- Squad support: Friends rally to defend together (social pressure to stay)
+
+---
+
+### Risk 6: Regulatory Issues (Privacy, GPS, Data)
+
+**Why it matters:**
+- GPS tracking data is sensitive
+- Running routes could leak home/work addresses
+- India's data localization rules strict
+
+**Mitigation:**
+- Data residency: All user GPS data stored in India (AWS Mumbai region)
+- Privacy controls: Let users hide home/work zones, blur certain addresses
+- Transparent privacy policy: Clear what data is stored, how it's used
+- GDPR + India's DPDP Act compliant
+- Regular security audits
+
+---
+
+## 14. GO-TO-MARKET TIMELINE
+
+| Phase | Timeline | Focus | Target |
+|---|---|---|---|
+| **Planning & Build** | 0–3 months | Core mechanics, testing, beta community | Ready for soft launch |
+| **Soft Launch** | Months 3–5 | Mumbai + Bangalore, feedback loops | 50k MAU |
+| **Rapid Expansion** | Months 6–9 | 8-city rollout, squads, AI coaching | 300k MAU |
+| **National Scale** | Months 10–12 | 15+ cities, tournaments, media | 1M MAU |
+| **Year 2** | Months 13–24 | International expansion, enterprise partnerships | 5M MAU |
+
+---
+
+## 15. APPENDIX: GLOSSARY & DEFINITIONS
+
+| Term | Definition |
+|---|---|
+| **Zone** | GPS-bounded territory claimed by running a closed loop. Identified by owner, boundary, health %, streak |
+| **Claim** | Act of creating a new zone by running a closed GPS loop |
+| **Attack** | Running through rival's zone boundary, reducing their zone health |
+| **Defend** | Running your own zone loop to restore health during attack |
+| **Health %** | Zone vitality (0–100%). At 0%, zone stolen. Reduced by attacks, decay, inactivity |
+| **Streak** | Consecutive days of running any zone loop. Breaks if player misses one day |
+| **Decay** | Automatic health loss (-2% per day) if zone not run/defended for 24h |
+| **14 km/h Rule** | GPS speed cap. Tracking pauses if speed exceeds 14 km/h. No input credited above this threshold |
+| **Squad** | Group of 2+ players who coordinate territory & compete together |
+| **War Room** | AI coach feature providing threat detection, zone recommendations, weekly reports |
+| **Prestige** | Social value of zone (landmark zones worth more than random parks) |
+| **Territory Perimeter** | Full GPS distance around zone boundary. Required to fully attack/defend |
+| **MAU** | Monthly Active Users (users with 1+ activity in 30-day period) |
+| **DAU** | Daily Active Users (users with 1+ activity on specific day) |
+| **ARPU** | Average Revenue Per User (monthly) |
+
+---
+
+## 16. CLOSING THESIS
+
+**DAUDLO is not a fitness app with gaming features. It's a territory-based strategy game where running is the only input method.**
+
+This distinction is critical. Every other running app tries to "gamify" existing fitness apps (Strava + leaderboards, Fitbit + challenges). DAUDLO inverts the dynamic: start with conquest (core gaming motivation), enable it through running (fitness becomes the means, not the goal).
+
+For Indian Gen Z with zero reason to choose running over scrolling, DAUDLO provides the missing ingredient: **persistent territorial stakes that only they can defend by showing up tomorrow.**
+
+Not dopamine. Consequences.
+
+---
+
+**End of PRD**
+
+---
+
+**Document Control:**
+- **Version:** 1.0
+- **Status:** Pre-launch development document
+- **Last Updated:** March 2026
+- **Next Review:** Post-soft launch (Month 5)
+
