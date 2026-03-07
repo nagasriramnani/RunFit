@@ -201,7 +201,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (status === "granted") {
       setLocationPermission(true);
       startBackgroundLocationWatch();
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
     }
   }, []);
@@ -216,8 +216,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    const startCoord: ZoneCoord = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+    const startCoord: ZoneCoord = currentLocation
+      ? { ...currentLocation }
+      : await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(
+          (loc) => ({ latitude: loc.coords.latitude, longitude: loc.coords.longitude })
+        );
     lastCoord.current = startCoord;
 
     setCurrentLocation(startCoord);
@@ -281,7 +284,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         });
       }
     );
-  }, [locationPermission, requestLocationPermission]);
+  }, [locationPermission, requestLocationPermission, currentLocation]);
 
   const stopTracking = useCallback(() => {
     locationSubscription.current?.remove();

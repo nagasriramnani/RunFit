@@ -63,6 +63,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/users/login", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: "email required" });
+      }
+      const result = await pool.query(
+        "SELECT * FROM daudlo_users WHERE email = $1",
+        [email.toLowerCase()]
+      );
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "no_account" });
+      }
+      const user = result.rows[0];
+      await pool.query(
+        "UPDATE daudlo_users SET last_seen=$1 WHERE id=$2",
+        [Date.now(), user.id]
+      );
+      return res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        city: user.city,
+        colorIndex: user.color_index,
+        inviteCode: user.invite_code,
+        totalKm: parseFloat(user.total_km) || 0,
+        streak: user.streak || 0,
+        zonesOwned: user.zones_owned || 0,
+        profilePicture: user.profile_picture || null,
+      });
+    } catch (e: any) {
+      console.error("Login error:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/users/me", async (req, res) => {
     try {
       const userId = req.headers["x-user-id"] as string;

@@ -9,13 +9,16 @@ import {
   Animated,
   Platform,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGang } from "@/contexts/GangContext";
 import { Colors, ZoneColors } from "@/constants/colors";
+import { getApiUrl } from "@/lib/query-client";
 
 const CITIES = [
   "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai",
@@ -55,29 +58,40 @@ function AnimatedColorDot({ index, selected, onPress }: {
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
-  const [step, setStep] = useState<"welcome" | "profile">("welcome");
+  const { signIn, signInExisting } = useAuth();
+  const { restoreUser } = useGang();
+  const [step, setStep] = useState<"welcome" | "signup" | "login">("welcome");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
   const [selectedCity, setSelectedCity] = useState("Mumbai");
   const [selectedColor, setSelectedColor] = useState(0);
   const [nameError, setNameError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const topPad = Platform.OS === "web" ? insets.top + 67 : insets.top;
 
-  const handleGoogleContinue = () => {
+  const goToStep = (target: "signup" | "login") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.timing(slideAnim, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
-    }).start(() => setStep("profile"));
+    }).start(() => setStep(target));
   };
 
-  const validateAndSignIn = async () => {
+  const goBack = () => {
+    setStep("welcome");
+    setLoginError("");
+    setNameError("");
+    setEmailError("");
+    slideAnim.setValue(0);
+  };
+
+  const validateAndSignUp = async () => {
     let valid = true;
     if (!name.trim() || name.trim().length < 2) {
       setNameError("Enter your name (at least 2 characters)");
@@ -102,6 +116,48 @@ export default function LoginScreen() {
         city: selectedCity,
         colorIndex: selectedColor,
       });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!loginEmail.trim() || !loginEmail.includes("@")) {
+      setLoginError("Enter the email you signed up with");
+      return;
+    }
+    setLoginError("");
+    setIsLoading(true);
+    try {
+      const base = getApiUrl();
+      const url = new URL("/api/users/login", base).toString();
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail.trim().toLowerCase() }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        if (data.error === "no_account") {
+          setLoginError("No account found with this email. Try signing up instead.");
+        } else {
+          setLoginError("Something went wrong. Please try again.");
+        }
+        return;
+      }
+      const data = await resp.json();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await restoreUser(data.id, data.inviteCode);
+      await signInExisting({
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        city: data.city,
+        colorIndex: data.colorIndex,
+        joinedAt: Date.now(),
+      });
+    } catch (e) {
+      setLoginError("Could not connect to server. Check your connection.");
     } finally {
       setIsLoading(false);
     }
@@ -150,15 +206,28 @@ export default function LoginScreen() {
 
         <View style={styles.authSection}>
           <TouchableOpacity
-            style={styles.googleBtn}
-            onPress={handleGoogleContinue}
+            style={styles.signUpBtn}
+            onPress={() => goToStep("signup")}
             activeOpacity={0.85}
           >
-            <View style={styles.googleIconCircle}>
-              <Text style={styles.googleG}>G</Text>
-            </View>
-            <Text style={styles.googleBtnText}>Continue with Google</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.text2} />
+            <LinearGradient
+              colors={[Colors.teal, "#00BDA8"]}
+              style={styles.authBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="person-add" size={18} color="#000" />
+              <Text style={styles.signUpBtnText}>Sign Up</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.loginBtn}
+            onPress={() => goToStep("login")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="log-in-outline" size={18} color={Colors.teal} />
+            <Text style={styles.loginBtnText}>Login</Text>
           </TouchableOpacity>
 
           <Text style={styles.termsText}>
@@ -166,6 +235,87 @@ export default function LoginScreen() {
           </Text>
         </View>
       </View>
+    );
+  }
+
+  if (step === "login") {
+    return (
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={[styles.container, { paddingTop: topPad + 16 }]}>
+          <LinearGradient
+            colors={["rgba(0,229,200,0.06)", "transparent"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <TouchableOpacity style={styles.backBtn} onPress={goBack}>
+            <Ionicons name="arrow-back" size={20} color={Colors.text} />
+          </TouchableOpacity>
+
+          <View style={styles.profileHeader}>
+            <View style={[styles.profilePreviewAvatar, { backgroundColor: Colors.teal + "20" }]}>
+              <Ionicons name="person" size={36} color={Colors.teal} />
+            </View>
+            <Text style={styles.profileHeaderTitle}>Welcome Back</Text>
+            <Text style={styles.profileHeaderSub}>Enter the email you signed up with to restore your account</Text>
+          </View>
+
+          <View style={styles.formSection}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>YOUR EMAIL</Text>
+              <View style={[styles.inputWrapper, loginError ? styles.inputError : null]}>
+                <Ionicons name="mail-outline" size={18} color={Colors.text2} />
+                <TextInput
+                  style={styles.input}
+                  value={loginEmail}
+                  onChangeText={(t) => { setLoginEmail(t); setLoginError(""); }}
+                  placeholder="you@gmail.com"
+                  placeholderTextColor={Colors.text3}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                  autoFocus
+                />
+              </View>
+              {!!loginError && <Text style={styles.errorText}>{loginError}</Text>}
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.joinBtn, isLoading && styles.joinBtnLoading]}
+            onPress={handleLogin}
+            activeOpacity={0.85}
+            disabled={isLoading}
+          >
+            <LinearGradient
+              colors={[Colors.teal, "#00BDA8"]}
+              style={styles.joinBtnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <>
+                  <Ionicons name="log-in" size={20} color="#000" />
+                  <Text style={styles.joinBtnText}>Login</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.switchAuthBtn}
+            onPress={() => { setStep("signup"); setLoginError(""); }}
+          >
+            <Text style={styles.switchAuthText}>
+              Don't have an account? <Text style={styles.switchAuthLink}>Sign Up</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -184,10 +334,7 @@ export default function LoginScreen() {
           colors={["rgba(0,229,200,0.06)", "transparent"]}
           style={StyleSheet.absoluteFill}
         />
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => setStep("welcome")}
-        >
+        <TouchableOpacity style={styles.backBtn} onPress={goBack}>
           <Ionicons name="arrow-back" size={20} color={Colors.text} />
         </TouchableOpacity>
 
@@ -220,9 +367,9 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>GMAIL ADDRESS</Text>
+            <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
             <View style={[styles.inputWrapper, emailError ? styles.inputError : null]}>
-              <Text style={styles.googleGSmall}>G</Text>
+              <Ionicons name="mail-outline" size={18} color={Colors.text2} />
               <TextInput
                 style={styles.input}
                 value={email}
@@ -285,7 +432,7 @@ export default function LoginScreen() {
 
         <TouchableOpacity
           style={[styles.joinBtn, isLoading && styles.joinBtnLoading]}
-          onPress={validateAndSignIn}
+          onPress={validateAndSignUp}
           activeOpacity={0.85}
           disabled={isLoading}
         >
@@ -296,7 +443,7 @@ export default function LoginScreen() {
             end={{ x: 1, y: 0 }}
           >
             {isLoading ? (
-              <Ionicons name="sync" size={22} color="#000" />
+              <ActivityIndicator size="small" color="#000" />
             ) : (
               <>
                 <Ionicons name="flag" size={20} color="#000" />
@@ -304,6 +451,15 @@ export default function LoginScreen() {
               </>
             )}
           </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.switchAuthBtn}
+          onPress={() => { setStep("login"); setNameError(""); setEmailError(""); }}
+        >
+          <Text style={styles.switchAuthText}>
+            Already have an account? <Text style={styles.switchAuthLink}>Login</Text>
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -340,28 +496,28 @@ const styles = StyleSheet.create({
   },
   pitchTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text, marginBottom: 2 },
   pitchDesc: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.text2 },
-  authSection: { paddingHorizontal: 20, gap: 16 },
-  googleBtn: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    backgroundColor: Colors.bg2, borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: Colors.border,
+  authSection: { paddingHorizontal: 20, gap: 12 },
+  signUpBtn: {
+    borderRadius: 14, overflow: "hidden",
   },
-  googleIconCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
+  authBtnGradient: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 10, paddingVertical: 16,
   },
-  googleG: {
-    fontFamily: "Inter_700Bold", fontSize: 16,
-    color: "#4285F4",
+  signUpBtnText: {
+    fontFamily: "Inter_700Bold", fontSize: 16, color: "#000",
   },
-  googleGSmall: {
-    fontFamily: "Inter_700Bold", fontSize: 15, color: "#4285F4", width: 20, textAlign: "center",
+  loginBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 10, paddingVertical: 16, borderRadius: 14,
+    backgroundColor: Colors.bg2, borderWidth: 1, borderColor: Colors.border,
   },
-  googleBtnText: {
-    fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.text, flex: 1,
+  loginBtnText: {
+    fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.teal,
   },
   termsText: {
     fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.text3, textAlign: "center",
+    marginTop: 4,
   },
   backBtn: {
     width: 40, height: 40, alignItems: "center", justifyContent: "center",
@@ -374,7 +530,7 @@ const styles = StyleSheet.create({
   },
   profilePreviewLetter: { fontFamily: "Inter_700Bold", fontSize: 32 },
   profileHeaderTitle: { fontFamily: "Inter_700Bold", fontSize: 22, color: Colors.text, marginBottom: 4 },
-  profileHeaderSub: { fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.text2 },
+  profileHeaderSub: { fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.text2, textAlign: "center" },
   formSection: { paddingHorizontal: 20, gap: 20, marginBottom: 28 },
   inputGroup: { gap: 8 },
   inputLabel: {
@@ -420,4 +576,13 @@ const styles = StyleSheet.create({
     gap: 10, paddingVertical: 18,
   },
   joinBtnText: { fontFamily: "Inter_700Bold", fontSize: 16, color: "#000" },
+  switchAuthBtn: {
+    alignItems: "center", paddingVertical: 20,
+  },
+  switchAuthText: {
+    fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.text2,
+  },
+  switchAuthLink: {
+    fontFamily: "Inter_600SemiBold", color: Colors.teal,
+  },
 });

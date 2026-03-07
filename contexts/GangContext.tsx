@@ -42,6 +42,7 @@ interface GangContextValue {
   generateInviteCode: () => Promise<string>;
   setBaseLocation: (loc: MemberLocation) => void;
   registerUser: (name: string, email: string, city: string, colorIndex: number) => Promise<void>;
+  restoreUser: (id: string, inviteCode: string) => Promise<void>;
   updateMyLocation: (lat: number, lng: number, isTracking: boolean) => void;
   refreshFriends: () => Promise<void>;
   apiUrl: (path: string) => string;
@@ -119,6 +120,18 @@ export function GangProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("Register error:", e);
       }
+    },
+    []
+  );
+
+  const restoreUser = useCallback(
+    async (id: string, inviteCode: string) => {
+      setServerUserId(id);
+      setMyInviteCode(inviteCode);
+      await AsyncStorage.setItem(
+        SERVER_USER_KEY,
+        JSON.stringify({ id, inviteCode })
+      );
     },
     []
   );
@@ -255,6 +268,7 @@ export function GangProvider({ children }: { children: ReactNode }) {
       generateInviteCode,
       setBaseLocation,
       registerUser,
+      restoreUser,
       updateMyLocation,
       refreshFriends,
       apiUrl,
@@ -269,6 +283,7 @@ export function GangProvider({ children }: { children: ReactNode }) {
       generateInviteCode,
       setBaseLocation,
       registerUser,
+      restoreUser,
       updateMyLocation,
       refreshFriends,
     ]

@@ -17,6 +17,7 @@ DAUDLO is a gamified territory-based running app for Indian Gen Z. Players "own"
 
 ## Backend API Routes (server/routes.ts)
 - `POST /api/users/register` — Register/update user by email (upsert), returns invite code + stats
+- `POST /api/users/login` — Login by email, returns full user data (404 if not found)
 - `GET /api/users/me` — Get current user with stats + profile picture (x-user-id header)
 - `GET /api/users/invite-code` — Get user's invite code
 - `POST /api/users/join` — Join by invite code (bidirectional friendship)
@@ -38,9 +39,12 @@ DAUDLO is a gamified territory-based running app for Indian Gen Z. Players "own"
 - Location updates sent to backend every 500ms (debounced)
 
 ## Auth Flow
-- `AuthContext` (contexts/AuthContext.tsx) — Google-style local profile auth
-- Login: Welcome → Profile setup (name, email, city, color)
-- Backend upserts by email — same email always returns same server user
+- `AuthContext` (contexts/AuthContext.tsx) — local profile auth with signIn (new) + signInExisting (restore)
+- Welcome screen has two buttons: Sign Up (new users) + Login (returning users)
+- Sign Up: Profile creation → name, email, city, color → creates new account
+- Login: Email lookup → POST /api/users/login → restores all data (friends, stats, invite code)
+- `GangContext.restoreUser()` sets serverUserId + inviteCode directly in context on login
+- Backend upserts by email on register — same email always returns same server user
 - On sign out, clears both @daudlo_user and @daudlo_server_user from AsyncStorage
 - Re-login with same email restores all friends, stats, invite code
 - `_layout.tsx` auto-registers user with backend if not yet registered

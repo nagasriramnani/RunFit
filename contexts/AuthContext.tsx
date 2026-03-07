@@ -21,6 +21,7 @@ interface AuthContextValue {
   user: UserProfile | null;
   isLoading: boolean;
   signIn: (profile: Omit<UserProfile, "id" | "joinedAt">) => Promise<void>;
+  signInExisting: (profile: UserProfile) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -63,6 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newUser);
   }
 
+  async function signInExisting(profile: UserProfile) {
+    await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(profile));
+    setUser(profile);
+  }
+
   async function signOut() {
     await AsyncStorage.removeItem(AUTH_KEY);
     await AsyncStorage.removeItem("@daudlo_server_user");
@@ -70,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo(
-    () => ({ user, isLoading, signIn, signOut }),
+    () => ({ user, isLoading, signIn, signInExisting, signOut }),
     [user, isLoading]
   );
 
