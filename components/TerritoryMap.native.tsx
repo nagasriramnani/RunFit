@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Animated,
   Easing,
-  Platform,
 } from "react-native";
 import MapView, { Polygon, Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +16,9 @@ import { useGame, Zone } from "@/contexts/GameContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, ZoneColors } from "@/constants/colors";
 import ZoneDetailCard from "@/components/ZoneDetailCard";
+import MapSideMenu from "@/components/MapSideMenu";
+import InvitePanel from "@/components/InvitePanel";
+import GangMembersStrip from "@/components/GangMembersStrip";
 
 function PulsingLocationMarker({ color }: { color: string }) {
   const pulse1 = useRef(new Animated.Value(0)).current;
@@ -71,28 +73,16 @@ function PulsingLocationMarker({ color }: { color: string }) {
 }
 
 const markerStyles = StyleSheet.create({
-  container: {
-    width: 60, height: 60, alignItems: "center", justifyContent: "center",
-  },
-  ring: {
-    position: "absolute",
-    width: 20, height: 20, borderRadius: 10,
-  },
+  container: { width: 60, height: 60, alignItems: "center", justifyContent: "center" },
+  ring: { position: "absolute", width: 20, height: 20, borderRadius: 10 },
   outerDot: {
     width: 20, height: 20, borderRadius: 10,
-    backgroundColor: "#fff",
-    borderWidth: 3,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 6,
+    backgroundColor: "#fff", borderWidth: 3,
+    alignItems: "center", justifyContent: "center",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4, shadowRadius: 4, elevation: 6,
   },
-  innerDot: {
-    width: 8, height: 8, borderRadius: 4,
-  },
+  innerDot: { width: 8, height: 8, borderRadius: 4 },
 });
 
 function ZoneMarkerBadge({ zone }: { zone: Zone }) {
@@ -116,17 +106,17 @@ function ZoneMarkerBadge({ zone }: { zone: Zone }) {
     <Animated.View
       style={[
         zoneMarker.container,
-        { borderColor: zc.stroke, transform: [{ scale: alertAnim }] }
+        { borderColor: zc.stroke, transform: [{ scale: alertAnim }] },
       ]}
     >
       <Text style={[zoneMarker.health, {
-        color: zone.health > 60 ? Colors.teal : zone.health > 30 ? Colors.orange : Colors.red
+        color: zone.health > 60 ? Colors.teal : zone.health > 30 ? Colors.orange : Colors.red,
       }]}>
         {Math.round(zone.health)}%
       </Text>
       {zone.status !== "owned" && (
         <View style={[zoneMarker.dot, {
-          backgroundColor: zone.status === "under_attack" ? Colors.red : Colors.orange
+          backgroundColor: zone.status === "under_attack" ? Colors.red : Colors.orange,
         }]} />
       )}
     </Animated.View>
@@ -170,10 +160,14 @@ export default function TerritoryMap() {
   } = useGame();
   const { user } = useAuth();
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const mapRef = useRef<any>(null);
   const didCenterOnUser = useRef(false);
 
   const playerColor = user ? ZoneColors[user.colorIndex].stroke : Colors.teal;
+  const stripTop = insets.top + 8;
+  const inviteTop = stripTop + 68 + 10;
 
   useEffect(() => {
     if (currentLocation && !didCenterOnUser.current && mapRef.current) {
@@ -270,7 +264,6 @@ export default function TerritoryMap() {
               coordinates={tracking.coords}
               strokeColor={playerColor}
               strokeWidth={4}
-              lineDashPattern={[]}
             />
             <Polyline
               coordinates={tracking.coords}
@@ -293,42 +286,36 @@ export default function TerritoryMap() {
           <Marker
             coordinate={currentLocation}
             anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={true}
+            tracksViewChanges
           >
             <PulsingLocationMarker color={playerColor} />
           </Marker>
         )}
       </MapView>
 
-      <LinearGradient
-        colors={["rgba(10,10,15,0.92)", "transparent"]}
-        style={[styles.topGradient, { paddingTop: insets.top + 12 }]}
-        pointerEvents="none"
-      >
-        <Text style={styles.logo}>DAUDLO</Text>
-      </LinearGradient>
-
-      <View style={[styles.topRight, { top: insets.top + 12 }]}>
-        {tracking.isTracking && (
-          <SpeedBadge speedKmh={tracking.speedKmh} isPaused={!!tracking.isPaused} />
-        )}
-      </View>
-
-      {!!tracking.speedWarning && (
-        <View style={styles.speedWarningOverlay}>
-          <View style={styles.speedWarningCard}>
-            <Ionicons name="warning" size={22} color={Colors.red} />
-            <Text style={styles.speedWarningText}>Slow down—cycling/vehicles don't count</Text>
-          </View>
-        </View>
-      )}
+      <GangMembersStrip
+        topOffset={stripTop}
+        onOpenMenu={() => setMenuOpen(true)}
+      />
 
       {tracking.isTracking && (
-        <View style={[styles.trackingBar, { top: insets.top + 58 }]}>
+        <View style={[styles.trackingBar, { top: stripTop + 68 + 8 }]}>
           <View style={[styles.trackingDot, { backgroundColor: tracking.isPaused ? Colors.red : playerColor }]} />
           <Text style={styles.trackingText}>
             {tracking.isPaused ? "PAUSED" : "TRACKING"} · {tracking.currentKm.toFixed(2)} km
           </Text>
+          {tracking.isTracking && (
+            <SpeedBadge speedKmh={tracking.speedKmh} isPaused={!!tracking.isPaused} />
+          )}
+        </View>
+      )}
+
+      {!!tracking.speedWarning && (
+        <View style={[styles.speedWarningOverlay, { top: stripTop + 68 + 60 }]}>
+          <View style={styles.speedWarningCard}>
+            <Ionicons name="warning" size={22} color={Colors.red} />
+            <Text style={styles.speedWarningText}>Slow down—cycling/vehicles don't count</Text>
+          </View>
         </View>
       )}
 
@@ -362,6 +349,18 @@ export default function TerritoryMap() {
         </TouchableOpacity>
       </View>
 
+      <InvitePanel
+        visible={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        topOffset={inviteTop}
+      />
+
+      <MapSideMenu
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onAddFriend={() => setInviteOpen(true)}
+      />
+
       {selectedZone && (
         <View style={[styles.detailCard, { paddingBottom: insets.bottom }]}>
           <ZoneDetailCard zone={selectedZone} onClose={() => setSelectedZone(null)} />
@@ -373,16 +372,9 @@ export default function TerritoryMap() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  topGradient: {
-    position: "absolute", top: 0, left: 0, right: 0, height: 130,
-    paddingHorizontal: 20, justifyContent: "flex-start",
-  },
-  logo: { fontFamily: "Inter_700Bold", fontSize: 22, color: Colors.teal, letterSpacing: 3 },
-  topRight: {
-    position: "absolute", right: 20, flexDirection: "row", alignItems: "center", gap: 12,
-  },
   trackingBar: {
-    position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 8,
+    position: "absolute", alignSelf: "center",
+    flexDirection: "row", alignItems: "center", gap: 10,
     backgroundColor: Colors.bg2, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24,
     borderWidth: 1, borderColor: Colors.border,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
@@ -391,7 +383,7 @@ const styles = StyleSheet.create({
   trackingDot: { width: 8, height: 8, borderRadius: 4 },
   trackingText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text, letterSpacing: 0.6 },
   speedWarningOverlay: {
-    position: "absolute", top: 140, left: 20, right: 20, alignItems: "center",
+    position: "absolute", left: 20, right: 20, alignItems: "center",
   },
   speedWarningCard: {
     flexDirection: "row", alignItems: "center", gap: 8,

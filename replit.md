@@ -10,6 +10,14 @@ DAUDLO is a gamified territory-based running app for Indian Gen Z. Players "own"
 - **State**: React Context (AuthContext + GameContext) + AsyncStorage
 - **Navigation**: 4-tab layout — Map, War Room, Rankings, Profile
 
+## Gang / Friends Feature
+- `GangContext` (contexts/GangContext.tsx) — persists gang members in AsyncStorage
+- `MapSideMenu` (components/MapSideMenu.tsx) — side drawer from left: profile, gang list, add friend, sign out
+- `GangMembersStrip` (components/GangMembersStrip.tsx) — floating strip at top of map with hamburger + member avatars
+- `InvitePanel` (components/InvitePanel.tsx) — overlay on map: animated loading dots → invite link + WhatsApp/Instagram/Facebook/More share buttons
+- Invite link format: `https://daudlo.app/join/DAUDLO_XXXXXXXX`
+- GangProvider wraps AuthProvider in root layout
+
 ## Auth Flow
 - `AuthContext` (contexts/AuthContext.tsx) — Google-style local profile auth
 - Login screen: Welcome → Profile setup (name, Gmail, city, color)

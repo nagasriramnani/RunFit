@@ -15,6 +15,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { GameProvider } from "@/contexts/GameContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { GangProvider } from "@/contexts/GangContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -61,9 +62,11 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>
             <AuthProvider>
-              <GameProvider>
-                <RootLayoutNav />
-              </GameProvider>
+              <GangProvider>
+                <GameProvider>
+                  <RootLayoutNav />
+                </GameProvider>
+              </GangProvider>
             </AuthProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
