@@ -111,19 +111,20 @@ function JoinSection({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [addedName, setAddedName] = useState("");
   const checkAnim = useRef(new Animated.Value(0)).current;
 
   const handleJoin = async () => {
     if (!code.trim()) return;
+    setErrorMsg("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setJoining(true);
-    await new Promise((r) => setTimeout(r, 1200));
     const result = await addMemberFromInvite(code.trim());
     setJoining(false);
-    if (result) {
+    if (result.success) {
       setSuccess(true);
-      setAddedName(code.trim());
+      setAddedName(result.friendName || code.trim());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Animated.spring(checkAnim, {
         toValue: 1,
@@ -137,6 +138,9 @@ function JoinSection({ onClose }: { onClose: () => void }) {
         setCode("");
         checkAnim.setValue(0);
       }, 1800);
+    } else {
+      setErrorMsg(result.error || "Invalid code. Check and try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
@@ -149,8 +153,8 @@ function JoinSection({ onClose }: { onClose: () => void }) {
         }]}>
           <Ionicons name="checkmark" size={32} color="#000" />
         </Animated.View>
-        <Text style={jStyles.successTitle}>Added to your gang!</Text>
-        <Text style={jStyles.successSub}>They'll appear on your map now</Text>
+        <Text style={jStyles.successTitle}>{addedName} added!</Text>
+        <Text style={jStyles.successSub}>You're now friends — they'll see you on their map too</Text>
       </View>
     );
   }
@@ -181,9 +185,13 @@ function JoinSection({ onClose }: { onClose: () => void }) {
           )}
         </TouchableOpacity>
       </View>
-      <Text style={jStyles.hintText}>
-        Ask your friend for their invite code and paste it above
-      </Text>
+      {errorMsg ? (
+        <Text style={jStyles.errorText}>{errorMsg}</Text>
+      ) : (
+        <Text style={jStyles.hintText}>
+          Ask your friend for their invite code and paste it above
+        </Text>
+      )}
     </View>
   );
 }
@@ -212,6 +220,7 @@ const jStyles = StyleSheet.create({
     borderWidth: 2, borderColor: Colors.teal, borderTopColor: "transparent",
   },
   hintText: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.text3 },
+  errorText: { fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.red },
   successWrap: { alignItems: "center", paddingVertical: 12, gap: 8 },
   checkCircle: {
     width: 60, height: 60, borderRadius: 30,

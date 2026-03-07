@@ -161,7 +161,7 @@ export default function TerritoryMap() {
     currentLocation,
   } = useGame();
   const { user } = useAuth();
-  const { gangMembers, setBaseLocation } = useGang();
+  const { gangMembers, setBaseLocation, updateMyLocation } = useGang();
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -175,6 +175,7 @@ export default function TerritoryMap() {
   useEffect(() => {
     if (currentLocation) {
       setBaseLocation(currentLocation);
+      updateMyLocation(currentLocation.latitude, currentLocation.longitude, tracking.isTracking);
       if (!didCenterOnUser.current && mapRef.current) {
         didCenterOnUser.current = true;
         mapRef.current.animateToRegion({
@@ -185,7 +186,7 @@ export default function TerritoryMap() {
         }, 1200);
       }
     }
-  }, [currentLocation]);
+  }, [currentLocation, tracking.isTracking]);
 
   const handleTrackingToggle = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

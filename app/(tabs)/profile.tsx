@@ -12,8 +12,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import * as ExpoClipboard from "expo-clipboard";
 import { useGame, Friend } from "@/contexts/GameContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGang } from "@/contexts/GangContext";
 import { Colors, ZoneColors } from "@/constants/colors";
 
 function StreakIcon({ streak }: { streak: number }) {
@@ -204,6 +206,55 @@ const phStyles = StyleSheet.create({
   statDivider: { width: 1, backgroundColor: Colors.border },
 });
 
+function InviteCodeCard() {
+  const { myInviteCode } = useGang();
+  const [copied, setCopied] = React.useState(false);
+
+  if (!myInviteCode) return null;
+
+  const handleCopy = async () => {
+    await ExpoClipboard.setStringAsync(myInviteCode);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <View style={icStyles.container}>
+      <View style={icStyles.header}>
+        <Ionicons name="key" size={14} color={Colors.teal} />
+        <Text style={icStyles.label}>MY INVITE CODE</Text>
+      </View>
+      <View style={icStyles.codeRow}>
+        <Text style={icStyles.code}>{myInviteCode}</Text>
+        <TouchableOpacity style={icStyles.copyBtn} onPress={handleCopy}>
+          <Ionicons name={copied ? "checkmark" : "copy-outline"} size={16} color={copied ? Colors.teal : Colors.text2} />
+        </TouchableOpacity>
+      </View>
+      <Text style={icStyles.hint}>Share this code so friends can add you</Text>
+    </View>
+  );
+}
+
+const icStyles = StyleSheet.create({
+  container: {
+    backgroundColor: Colors.bg2, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: Colors.teal + "30", marginBottom: 16, gap: 8,
+  },
+  header: { flexDirection: "row", alignItems: "center", gap: 6 },
+  label: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.teal, letterSpacing: 1.5 },
+  codeRow: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: Colors.bg3, borderRadius: 10, paddingLeft: 14, paddingRight: 6, paddingVertical: 10,
+  },
+  code: { flex: 1, fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.text, letterSpacing: 1 },
+  copyBtn: {
+    width: 34, height: 34, borderRadius: 8,
+    backgroundColor: Colors.bg2, alignItems: "center", justifyContent: "center",
+  },
+  hint: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.text3 },
+});
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { friends } = useGame();
@@ -242,6 +293,8 @@ export default function ProfileScreen() {
         </View>
 
         <PlayerHeader />
+
+        <InviteCodeCard />
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
