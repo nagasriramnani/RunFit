@@ -73,7 +73,7 @@ export function GangProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (serverUserId) {
       fetchFriends();
-      refreshIntervalRef.current = setInterval(fetchFriends, 10000);
+      refreshIntervalRef.current = setInterval(fetchFriends, 5000);
     }
     return () => {
       if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
@@ -235,7 +235,7 @@ export function GangProvider({ children }: { children: ReactNode }) {
           },
           body: JSON.stringify({ latitude: lat, longitude: lng, isTracking }),
         }).catch(console.error);
-      }, 3000);
+      }, 500);
     },
     [serverUserId]
   );

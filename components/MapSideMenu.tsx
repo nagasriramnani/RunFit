@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -141,12 +141,14 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
   const { gangMembers, removeMember } = useGang();
   const slideAnim = useRef(new Animated.Value(-MENU_WIDTH)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+  const [rendered, setRendered] = useState(false);
 
   const activeCount = gangMembers.filter((m) => m.isActive).length;
   const runningCount = gangMembers.filter((m) => m.isRunning).length;
 
   useEffect(() => {
     if (visible) {
+      setRendered(true);
       Animated.parallel([
         Animated.spring(slideAnim, {
           toValue: 0, tension: 220, friction: 22, useNativeDriver: true,
@@ -163,13 +165,15 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
         Animated.timing(backdropAnim, {
           toValue: 0, duration: 200, useNativeDriver: true,
         }),
-      ]).start();
+      ]).start(({ finished }) => {
+        if (finished) setRendered(false);
+      });
     }
   }, [visible]);
 
   const playerColor = user ? ZoneColors[user.colorIndex].stroke : Colors.teal;
 
-  if (!visible && slideAnim.__getValue() === -MENU_WIDTH) return null;
+  if (!rendered) return null;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={visible ? "auto" : "none"}>
