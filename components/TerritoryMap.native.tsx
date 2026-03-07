@@ -1,13 +1,146 @@
-import React, { useState, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import MapView, { Polygon, Marker, PROVIDER_DEFAULT } from "react-native-maps";
+import React, { useState, useRef, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Easing,
+  Platform,
+} from "react-native";
+import MapView, { Polygon, Marker, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useGame, Zone } from "@/contexts/GameContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Colors, ZoneColors } from "@/constants/colors";
 import ZoneDetailCard from "@/components/ZoneDetailCard";
+
+function PulsingLocationMarker({ color }: { color: string }) {
+  const pulse1 = useRef(new Animated.Value(0)).current;
+  const pulse2 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const anim1 = Animated.loop(
+      Animated.timing(pulse1, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      })
+    );
+    const anim2 = Animated.loop(
+      Animated.sequence([
+        Animated.delay(600),
+        Animated.timing(pulse2, {
+          toValue: 1,
+          duration: 1800,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    anim1.start();
+    anim2.start();
+    return () => {
+      anim1.stop();
+      anim2.stop();
+    };
+  }, []);
+
+  const ring1Style = {
+    transform: [{ scale: pulse1.interpolate({ inputRange: [0, 1], outputRange: [0.5, 3.2] }) }],
+    opacity: pulse1.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.6, 0.3, 0] }),
+  };
+  const ring2Style = {
+    transform: [{ scale: pulse2.interpolate({ inputRange: [0, 1], outputRange: [0.5, 3.2] }) }],
+    opacity: pulse2.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.5, 0.2, 0] }),
+  };
+
+  return (
+    <View style={markerStyles.container}>
+      <Animated.View style={[markerStyles.ring, { backgroundColor: color }, ring1Style]} />
+      <Animated.View style={[markerStyles.ring, { backgroundColor: color }, ring2Style]} />
+      <View style={[markerStyles.outerDot, { borderColor: color }]}>
+        <View style={[markerStyles.innerDot, { backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+}
+
+const markerStyles = StyleSheet.create({
+  container: {
+    width: 60, height: 60, alignItems: "center", justifyContent: "center",
+  },
+  ring: {
+    position: "absolute",
+    width: 20, height: 20, borderRadius: 10,
+  },
+  outerDot: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: "#fff",
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  innerDot: {
+    width: 8, height: 8, borderRadius: 4,
+  },
+});
+
+function ZoneMarkerBadge({ zone }: { zone: Zone }) {
+  const zc = ZoneColors[zone.colorIndex];
+  const alertAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (zone.status === "under_attack") {
+      const anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(alertAnim, { toValue: 1.15, duration: 500, useNativeDriver: true }),
+          Animated.timing(alertAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        ])
+      );
+      anim.start();
+      return () => anim.stop();
+    }
+  }, [zone.status]);
+
+  return (
+    <Animated.View
+      style={[
+        zoneMarker.container,
+        { borderColor: zc.stroke, transform: [{ scale: alertAnim }] }
+      ]}
+    >
+      <Text style={[zoneMarker.health, {
+        color: zone.health > 60 ? Colors.teal : zone.health > 30 ? Colors.orange : Colors.red
+      }]}>
+        {Math.round(zone.health)}%
+      </Text>
+      {zone.status !== "owned" && (
+        <View style={[zoneMarker.dot, {
+          backgroundColor: zone.status === "under_attack" ? Colors.red : Colors.orange
+        }]} />
+      )}
+    </Animated.View>
+  );
+}
+
+const zoneMarker = StyleSheet.create({
+  container: {
+    backgroundColor: Colors.bg2, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3,
+    borderWidth: 1, alignItems: "center", flexDirection: "row", gap: 4,
+  },
+  health: { fontFamily: "Inter_700Bold", fontSize: 11 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+});
 
 function SpeedBadge({ speedKmh, isPaused }: { speedKmh: number; isPaused: boolean }) {
   const color = isPaused ? Colors.red : speedKmh > 10 ? Colors.orange : Colors.teal;
@@ -33,9 +166,26 @@ export default function TerritoryMap() {
   const {
     zones, tracking, startTracking, stopTracking,
     locationPermission, requestLocationPermission,
+    currentLocation,
   } = useGame();
+  const { user } = useAuth();
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const mapRef = useRef<any>(null);
+  const didCenterOnUser = useRef(false);
+
+  const playerColor = user ? ZoneColors[user.colorIndex].stroke : Colors.teal;
+
+  useEffect(() => {
+    if (currentLocation && !didCenterOnUser.current && mapRef.current) {
+      didCenterOnUser.current = true;
+      mapRef.current.animateToRegion({
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: 0.04,
+        longitudeDelta: 0.04,
+      }, 1200);
+    }
+  }, [currentLocation]);
 
   const handleTrackingToggle = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -43,6 +193,26 @@ export default function TerritoryMap() {
       stopTracking();
     } else {
       await startTracking();
+      if (currentLocation && mapRef.current) {
+        mapRef.current.animateToRegion({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        }, 800);
+      }
+    }
+  };
+
+  const handleMyLocation = () => {
+    if (currentLocation && mapRef.current) {
+      Haptics.selectionAsync();
+      mapRef.current.animateToRegion({
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      }, 800);
     }
   };
 
@@ -53,13 +223,13 @@ export default function TerritoryMap() {
         style={StyleSheet.absoluteFill}
         provider={PROVIDER_DEFAULT}
         initialRegion={{
-          latitude: 19.0178,
-          longitude: 72.8478,
-          latitudeDelta: 0.18,
-          longitudeDelta: 0.18,
+          latitude: 20.5937,
+          longitude: 78.9629,
+          latitudeDelta: 30,
+          longitudeDelta: 30,
         }}
         customMapStyle={darkMapStyle}
-        showsUserLocation={!!locationPermission}
+        showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={false}
         showsScale={false}
@@ -86,44 +256,59 @@ export default function TerritoryMap() {
                   Haptics.selectionAsync();
                 }}
                 anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={zone.status !== "owned"}
               >
-                <View style={[markerStyles.container, { borderColor: zc.stroke }]}>
-                  <Text style={[markerStyles.health, {
-                    color: zone.health > 60 ? Colors.teal : zone.health > 30 ? Colors.orange : Colors.red
-                  }]}>
-                    {Math.round(zone.health)}%
-                  </Text>
-                  {zone.status !== "owned" && (
-                    <View style={[markerStyles.dot, {
-                      backgroundColor: zone.status === "under_attack" ? Colors.red : Colors.orange
-                    }]} />
-                  )}
-                </View>
+                <ZoneMarkerBadge zone={zone} />
               </Marker>
             </React.Fragment>
           );
         })}
 
         {tracking.isTracking && tracking.coords.length > 1 && (
+          <>
+            <Polyline
+              coordinates={tracking.coords}
+              strokeColor={playerColor}
+              strokeWidth={4}
+              lineDashPattern={[]}
+            />
+            <Polyline
+              coordinates={tracking.coords}
+              strokeColor={playerColor + "30"}
+              strokeWidth={16}
+            />
+          </>
+        )}
+
+        {tracking.coveredArea && tracking.coveredArea.length > 2 && (
           <Polygon
-            coordinates={tracking.coords}
-            fillColor="rgba(0,229,200,0.1)"
-            strokeColor={Colors.teal}
-            strokeWidth={2}
+            coordinates={tracking.coveredArea}
+            fillColor={playerColor + "20"}
+            strokeColor={playerColor + "60"}
+            strokeWidth={1.5}
           />
+        )}
+
+        {currentLocation && locationPermission && (
+          <Marker
+            coordinate={currentLocation}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={true}
+          >
+            <PulsingLocationMarker color={playerColor} />
+          </Marker>
         )}
       </MapView>
 
       <LinearGradient
-        colors={["rgba(10,10,15,0.95)", "transparent"]}
+        colors={["rgba(10,10,15,0.92)", "transparent"]}
         style={[styles.topGradient, { paddingTop: insets.top + 12 }]}
         pointerEvents="none"
       >
         <Text style={styles.logo}>DAUDLO</Text>
       </LinearGradient>
 
-      <View style={[styles.topControls, { top: insets.top + 12 }]}>
-        <View style={{ flex: 1 }} />
+      <View style={[styles.topRight, { top: insets.top + 12 }]}>
         {tracking.isTracking && (
           <SpeedBadge speedKmh={tracking.speedKmh} isPaused={!!tracking.isPaused} />
         )}
@@ -140,17 +325,22 @@ export default function TerritoryMap() {
 
       {tracking.isTracking && (
         <View style={[styles.trackingBar, { top: insets.top + 58 }]}>
-          <View style={[styles.trackingDot, { backgroundColor: tracking.isPaused ? Colors.red : Colors.teal }]} />
+          <View style={[styles.trackingDot, { backgroundColor: tracking.isPaused ? Colors.red : playerColor }]} />
           <Text style={styles.trackingText}>
             {tracking.isPaused ? "PAUSED" : "TRACKING"} · {tracking.currentKm.toFixed(2)} km
           </Text>
         </View>
       )}
 
-      <View style={[styles.bottomControls, { bottom: (insets.bottom || 20) + 90 }]}>
+      <View style={[styles.rightControls, { bottom: (insets.bottom || 20) + 90 }]}>
+        {locationPermission && (
+          <TouchableOpacity style={styles.myLocBtn} onPress={handleMyLocation}>
+            <Ionicons name="locate" size={20} color={Colors.text} />
+          </TouchableOpacity>
+        )}
         {!locationPermission && (
           <TouchableOpacity style={styles.permBtn} onPress={requestLocationPermission}>
-            <Ionicons name="location" size={18} color={Colors.bg} />
+            <Ionicons name="location" size={16} color={Colors.bg} />
             <Text style={styles.permBtnText}>Enable GPS</Text>
           </TouchableOpacity>
         )}
@@ -181,29 +371,22 @@ export default function TerritoryMap() {
   );
 }
 
-const markerStyles = StyleSheet.create({
-  container: {
-    backgroundColor: Colors.bg2, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3,
-    borderWidth: 1, alignItems: "center", flexDirection: "row", gap: 4,
-  },
-  health: { fontFamily: "Inter_700Bold", fontSize: 11 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-});
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   topGradient: {
-    position: "absolute", top: 0, left: 0, right: 0, height: 120,
+    position: "absolute", top: 0, left: 0, right: 0, height: 130,
     paddingHorizontal: 20, justifyContent: "flex-start",
   },
   logo: { fontFamily: "Inter_700Bold", fontSize: 22, color: Colors.teal, letterSpacing: 3 },
-  topControls: {
-    position: "absolute", left: 20, right: 20, flexDirection: "row", alignItems: "center", gap: 12,
+  topRight: {
+    position: "absolute", right: 20, flexDirection: "row", alignItems: "center", gap: 12,
   },
   trackingBar: {
-    position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: Colors.bg2, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
+    position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: Colors.bg2, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24,
     borderWidth: 1, borderColor: Colors.border,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
   trackingDot: { width: 8, height: 8, borderRadius: 4 },
   trackingText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text, letterSpacing: 0.6 },
@@ -212,20 +395,27 @@ const styles = StyleSheet.create({
   },
   speedWarningCard: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: "rgba(255,61,87,0.15)", borderColor: "rgba(255,61,87,0.4)",
-    borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10,
+    backgroundColor: "rgba(255,61,87,0.15)", borderColor: "rgba(255,61,87,0.5)",
+    borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12,
   },
   speedWarningText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.red, flex: 1 },
-  bottomControls: { position: "absolute", right: 20, alignItems: "flex-end", gap: 12 },
+  rightControls: { position: "absolute", right: 20, alignItems: "center", gap: 12 },
+  myLocBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: Colors.bg2, borderWidth: 1, borderColor: Colors.border,
+    alignItems: "center", justifyContent: "center",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+  },
   permBtn: {
     flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: Colors.teal,
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
   },
-  permBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.bg },
+  permBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.bg },
   trackBtn: {
     width: 64, height: 64, borderRadius: 32, overflow: "hidden",
     shadowColor: Colors.teal, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+    shadowOpacity: 0.5, shadowRadius: 14, elevation: 10,
   },
   trackBtnGradient: { flex: 1, alignItems: "center", justifyContent: "center" },
   detailCard: { position: "absolute", bottom: 0, left: 0, right: 0 },
@@ -233,13 +423,17 @@ const styles = StyleSheet.create({
 
 const darkMapStyle = [
   { elementType: "geometry", stylers: [{ color: "#0A0A0F" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "rgba(240,240,248,0.4)" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "rgba(240,240,248,0.45)" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#0A0A0F" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#1C1C26" }] },
   { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#13131A" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#222230" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0D1117" }] },
-  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#111118" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#0F1A13" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#252534" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1C1C26" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0A0E17" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#0F0F18" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#0C1410" }] },
   { featureType: "transit", elementType: "geometry", stylers: [{ color: "#13131A" }] },
+  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#1C1C26" }] },
+  { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "rgba(240,240,248,0.6)" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "rgba(240,240,248,0.5)" }] },
 ];

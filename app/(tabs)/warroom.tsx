@@ -4,15 +4,14 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Animated,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
 import { useGame, Zone } from "@/contexts/GameContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Colors, ZoneColors } from "@/constants/colors";
 
 function HealthBar({ health, color }: { health: number; color: string }) {
@@ -23,7 +22,7 @@ function HealthBar({ health, color }: { health: number; color: string }) {
   useEffect(() => {
     Animated.timing(anim, {
       toValue: pct / 100,
-      duration: 800,
+      duration: 900,
       useNativeDriver: false,
     }).start();
   }, [pct]);
@@ -39,11 +38,8 @@ function HealthBar({ health, color }: { health: number; color: string }) {
 
 const hbStyles = StyleSheet.create({
   track: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    overflow: "hidden",
-    flex: 1,
+    height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.08)",
+    overflow: "hidden", flex: 1,
   },
   fill: { height: "100%", borderRadius: 3 },
 });
@@ -51,7 +47,6 @@ const hbStyles = StyleSheet.create({
 function StreakBadge({ streak }: { streak: number }) {
   let level = "BRONZE";
   let color = "#CD7F32";
-  let icon: "flame" | "flame" = "flame";
   let count = 1;
 
   if (streak >= 30) { level = "DIAMOND"; color = "#00E5FF"; count = 5; }
@@ -63,7 +58,7 @@ function StreakBadge({ streak }: { streak: number }) {
     <View style={[sbStyles.container, { borderColor: color + "30", backgroundColor: color + "10" }]}>
       <View style={sbStyles.flames}>
         {Array.from({ length: count }).map((_, i) => (
-          <Ionicons key={i} name="flame" size={16} color={color} />
+          <Ionicons key={i} name="flame" size={14} color={color} />
         ))}
       </View>
       <Text style={[sbStyles.level, { color }]}>{level}</Text>
@@ -73,27 +68,21 @@ function StreakBadge({ streak }: { streak: number }) {
 
 const sbStyles = StyleSheet.create({
   container: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1,
   },
   flames: { flexDirection: "row", gap: 1 },
-  level: { fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 0.8 },
+  level: { fontFamily: "Inter_700Bold", fontSize: 11, letterSpacing: 0.8 },
 });
 
 function ThreatCard({ zone }: { zone: Zone }) {
-  const zc = ZoneColors[zone.colorIndex];
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.3, duration: 650, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 650, useNativeDriver: true }),
       ])
     );
     anim.start();
@@ -113,11 +102,9 @@ function ThreatCard({ zone }: { zone: Zone }) {
             <Text style={tcStyles.damageText}>{zone.attackProgress}% DAMAGE</Text>
           </View>
         </View>
-        <Text style={tcStyles.attackerText}>
-          <Ionicons name="person" size={12} color={Colors.red} /> {zone.attackerName} is attacking
-        </Text>
+        <Text style={tcStyles.attackerText}>{zone.attackerName} is attacking</Text>
         <View style={tcStyles.healthRow}>
-          <HealthBar health={zone.health} color={zc.stroke} />
+          <HealthBar health={zone.health} color={ZoneColors[zone.colorIndex].stroke} />
           <Text style={[tcStyles.healthPct, {
             color: zone.health > 60 ? Colors.teal : zone.health > 30 ? Colors.orange : Colors.red
           }]}>{Math.round(zone.health)}%</Text>
@@ -129,21 +116,11 @@ function ThreatCard({ zone }: { zone: Zone }) {
 
 const tcStyles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.bg3,
-    borderRadius: 14,
-    padding: 14,
-    flexDirection: "row",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,61,87,0.2)",
-    marginBottom: 10,
+    backgroundColor: Colors.bg3, borderRadius: 14, padding: 14,
+    flexDirection: "row", gap: 12, borderWidth: 1,
+    borderColor: "rgba(255,61,87,0.2)", marginBottom: 10,
   },
-  leftAccent: {
-    width: 3,
-    borderRadius: 2,
-    backgroundColor: Colors.red,
-    alignSelf: "stretch",
-  },
+  leftAccent: { width: 3, borderRadius: 2, backgroundColor: Colors.red, alignSelf: "stretch" },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   alertDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.red },
@@ -181,14 +158,8 @@ function ZoneRow({ zone }: { zone: Zone }) {
 
 const zrStyles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.bg3,
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.bg3, borderRadius: 12, padding: 14,
+    flexDirection: "row", gap: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.border,
   },
   colorBar: { width: 3, borderRadius: 2, alignSelf: "stretch" },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
@@ -201,16 +172,13 @@ const zrStyles = StyleSheet.create({
 
 export default function WarRoomScreen() {
   const insets = useSafeAreaInsets();
-  const { playerName, playerStreak, playerTotalKm, playerZones, activeThreats } = useGame();
+  const { playerStreak, playerTotalKm, playerZones, activeThreats } = useGame();
+  const { user } = useAuth();
+  const displayName = user?.name ?? "Runner";
   const topPad = Platform.OS === "web" ? insets.top + 67 : insets.top;
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.bg, "transparent"]}
-        style={[styles.headerGrad, { paddingTop: topPad + 16 }]}
-        pointerEvents="none"
-      />
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
@@ -218,7 +186,7 @@ export default function WarRoomScreen() {
         <View style={styles.titleRow}>
           <View>
             <Text style={styles.screenLabel}>WAR ROOM</Text>
-            <Text style={styles.playerName}>{playerName}</Text>
+            <Text style={styles.playerName}>{displayName}</Text>
           </View>
           <StreakBadge streak={playerStreak} />
         </View>
@@ -244,7 +212,7 @@ export default function WarRoomScreen() {
         {activeThreats.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={styles.threatIndicator} />
+              <View style={styles.threatDot} />
               <Text style={styles.sectionTitle}>Active Threats</Text>
               <View style={[styles.countBadge, { backgroundColor: Colors.redDim }]}>
                 <Text style={[styles.countText, { color: Colors.red }]}>{activeThreats.length}</Text>
@@ -265,7 +233,7 @@ export default function WarRoomScreen() {
           {playerZones.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="map-outline" size={32} color={Colors.text3} />
-              <Text style={styles.emptyText}>No territories yet. Start running to claim zones!</Text>
+              <Text style={styles.emptyText}>No territories yet. Go for a run to claim zones!</Text>
             </View>
           ) : (
             playerZones.map((z) => <ZoneRow key={z.id} zone={z} />)
@@ -275,27 +243,22 @@ export default function WarRoomScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="information-circle-outline" size={16} color={Colors.text2} />
-            <Text style={styles.sectionTitle}>Zone Decay Rules</Text>
+            <Text style={styles.sectionTitle}>Zone Rules</Text>
           </View>
           <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: Colors.tealDim }]}>
-                <Ionicons name="timer-outline" size={14} color={Colors.teal} />
+            {[
+              { bg: Colors.tealDim, icon: "timer-outline" as const, iconColor: Colors.teal, text: "Zones lose 2% health every 24h without running" },
+              { bg: "rgba(255,140,66,0.12)", icon: "flame" as const, iconColor: Colors.orange, text: "7+ day streak reduces decay to 1.5%/day" },
+              { bg: "rgba(168,85,247,0.12)", icon: "trophy" as const, iconColor: Colors.purple, text: "30+ day streak: only 0.25% decay per day" },
+              { bg: "rgba(255,61,87,0.12)", icon: "speedometer" as const, iconColor: Colors.red, text: "Speed cap: 14 km/h — no cycling or vehicles" },
+            ].map((item) => (
+              <View key={item.text} style={styles.infoRow}>
+                <View style={[styles.infoIcon, { backgroundColor: item.bg }]}>
+                  <Ionicons name={item.icon} size={14} color={item.iconColor} />
+                </View>
+                <Text style={styles.infoText}>{item.text}</Text>
               </View>
-              <Text style={styles.infoText}>Zones lose 2% health every 24h without running</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: "rgba(255,140,66,0.15)" }]}>
-                <Ionicons name="flame" size={14} color={Colors.orange} />
-              </View>
-              <Text style={styles.infoText}>7+ day streak reduces decay to 1.5%/day</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: "rgba(168,85,247,0.15)" }]}>
-                <Ionicons name="trophy" size={14} color={Colors.purple} />
-              </View>
-              <Text style={styles.infoText}>30+ day streak: only 0.25% decay per day</Text>
-            </View>
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -305,126 +268,44 @@ export default function WarRoomScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  headerGrad: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    zIndex: 1,
-  },
   scroll: { paddingHorizontal: 20 },
   titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 24,
+    flexDirection: "row", justifyContent: "space-between",
+    alignItems: "flex-start", marginBottom: 24,
   },
   screenLabel: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    color: Colors.teal,
-    letterSpacing: 2.5,
-    marginBottom: 4,
+    fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.teal,
+    letterSpacing: 2.5, marginBottom: 4,
   },
-  playerName: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 26,
-    color: Colors.text,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 28,
-  },
+  playerName: { fontFamily: "Inter_700Bold", fontSize: 26, color: Colors.text },
+  statsGrid: { flexDirection: "row", gap: 10, marginBottom: 28 },
   statCard: {
-    flex: 1,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: "hidden",
+    flex: 1, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: Colors.border, overflow: "hidden",
   },
-  statValue: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 24,
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    color: Colors.text2,
-  },
-  statIcon: {
-    position: "absolute",
-    right: 12,
-    top: 12,
-    opacity: 0.5,
-  },
+  statValue: { fontFamily: "Inter_700Bold", fontSize: 24, color: Colors.text, marginBottom: 2 },
+  statLabel: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.text2 },
+  statIcon: { position: "absolute", right: 12, top: 12, opacity: 0.5 },
   section: { marginBottom: 24 },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 16,
-    color: Colors.text,
-    flex: 1,
-  },
-  threatIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.red,
-  },
-  countBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  countText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 12,
-  },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  sectionTitle: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.text, flex: 1 },
+  threatDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.red },
+  countBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  countText: { fontFamily: "Inter_700Bold", fontSize: 12 },
   emptyState: {
-    alignItems: "center",
-    gap: 8,
-    padding: 24,
-    backgroundColor: Colors.bg2,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    alignItems: "center", gap: 8, padding: 24,
+    backgroundColor: Colors.bg2, borderRadius: 14,
+    borderWidth: 1, borderColor: Colors.border,
   },
-  emptyText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: Colors.text2,
-    textAlign: "center",
-  },
+  emptyText: { fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.text2, textAlign: "center" },
   infoCard: {
-    backgroundColor: Colors.bg2,
-    borderRadius: 14,
-    padding: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.bg2, borderRadius: 14, padding: 16,
+    gap: 12, borderWidth: 1, borderColor: Colors.border,
   },
   infoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   infoIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 30, height: 30, borderRadius: 8,
+    alignItems: "center", justifyContent: "center",
   },
-  infoText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: Colors.text2,
-    flex: 1,
-  },
+  infoText: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.text2, flex: 1 },
 });

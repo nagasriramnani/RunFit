@@ -8,9 +8,8 @@ import React, {
   ReactNode,
   useCallback,
 } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Location from "expo-location";
 import { Platform } from "react-native";
+import * as Location from "expo-location";
 
 export interface ZoneCoord {
   latitude: number;
@@ -64,6 +63,7 @@ export interface TrackingState {
   currentKm: number;
   speedWarning: boolean;
   coords: ZoneCoord[];
+  coveredArea: ZoneCoord[];
 }
 
 interface GameContextValue {
@@ -71,6 +71,7 @@ interface GameContextValue {
   friends: Friend[];
   leaderboard: LeaderboardEntry[];
   tracking: TrackingState;
+  currentLocation: ZoneCoord | null;
   playerName: string;
   playerColorIndex: number;
   playerStreak: number;
@@ -85,7 +86,7 @@ interface GameContextValue {
 
 const GameContext = createContext<GameContextValue | null>(null);
 
-const MUMBAI_ZONES: Omit<Zone, "id">[] = [
+const MOCK_ZONES: Omit<Zone, "id">[] = [
   {
     name: "Marine Drive",
     ownerId: "player",
@@ -253,20 +254,33 @@ const LEADERBOARD_DATA: LeaderboardEntry[] = [
   { id: "priya", name: "Priya S.", colorIndex: 2, zonesOwned: 1, totalKm: 98.7, streak: 5, rank: 4 },
   { id: "neha", name: "Neha R.", colorIndex: 3, zonesOwned: 1, totalKm: 65.1, streak: 2, rank: 5 },
   { id: "vikram", name: "Vikram P.", colorIndex: 5, zonesOwned: 0, totalKm: 44.2, streak: 1, rank: 6 },
-  { id: "ananya", name: "Ananya T.", colorIndex: 1, zonesOwned: 0, totalKm: 38.9, streak: 0, rank: 7 },
 ];
 
 function generateId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
 
+function calcDistance(a: ZoneCoord, b: ZoneCoord): number {
+  const R = 6371;
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const sa =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((a.latitude * Math.PI) / 180) *
+      Math.cos((b.latitude * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(sa), Math.sqrt(1 - sa));
+}
+
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [zones, setZones] = useState<Zone[]>(() =>
-    MUMBAI_ZONES.map((z) => ({ ...z, id: generateId() }))
+  const [zones] = useState<Zone[]>(() =>
+    MOCK_ZONES.map((z) => ({ ...z, id: generateId() }))
   );
   const [friends] = useState<Friend[]>(FRIENDS_DATA);
   const [leaderboard] = useState<LeaderboardEntry[]>(LEADERBOARD_DATA);
   const [locationPermission, setLocationPermission] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<ZoneCoord | null>(null);
   const [tracking, setTracking] = useState<TrackingState>({
     isTracking: false,
     isPaused: false,
@@ -274,103 +288,118 @@ export function GameProvider({ children }: { children: ReactNode }) {
     currentKm: 0,
     speedWarning: false,
     coords: [],
+    coveredArea: [],
   });
+
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
+  const bgLocationSubscription = useRef<Location.LocationSubscription | null>(null);
   const speedWarningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCoord = useRef<ZoneCoord | null>(null);
 
   const playerStreak = 21;
   const playerTotalKm = 156.8;
 
-  const playerZones = useMemo(
-    () => zones.filter((z) => z.ownerId === "player"),
-    [zones]
-  );
-
+  const playerZones = useMemo(() => zones.filter((z) => z.ownerId === "player"), [zones]);
   const activeThreats = useMemo(
     () => zones.filter((z) => z.ownerId === "player" && z.status === "under_attack"),
     [zones]
   );
 
   useEffect(() => {
-    checkLocationPermission();
-    startZoneDecay();
+    if (Platform.OS !== "web") {
+      checkLocationPermission();
+      startBackgroundLocationWatch();
+    }
   }, []);
 
   const checkLocationPermission = async () => {
-    if (Platform.OS === "web") return;
     const { status } = await Location.getForegroundPermissionsAsync();
-    setLocationPermission(status === "granted");
+    if (status === "granted") {
+      setLocationPermission(true);
+    }
   };
 
-  const requestLocationPermission = async () => {
+  const startBackgroundLocationWatch = async () => {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status !== "granted") return;
+    bgLocationSubscription.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 3000,
+        distanceInterval: 10,
+      },
+      (loc) => {
+        setCurrentLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+      }
+    );
+  };
+
+  const requestLocationPermission = useCallback(async () => {
     if (Platform.OS === "web") {
       setLocationPermission(true);
       return;
     }
     const { status } = await Location.requestForegroundPermissionsAsync();
-    setLocationPermission(status === "granted");
-  };
-
-  const startZoneDecay = () => {
-    const interval = setInterval(() => {
-      setZones((prev) =>
-        prev.map((z) => {
-          if (z.ownerId !== "player") return z;
-          const decayRate = z.streak >= 30 ? 0.5 : z.streak >= 15 ? 1.0 : z.streak >= 8 ? 1.5 : 2.0;
-          const newHealth = Math.max(0, z.health - decayRate * 0.01);
-          return { ...z, health: newHealth };
-        })
-      );
-    }, 60000);
-    return () => clearInterval(interval);
-  };
-
-  function calcDistance(a: ZoneCoord, b: ZoneCoord): number {
-    const R = 6371;
-    const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
-    const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
-    const sa = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((a.latitude * Math.PI) / 180) *
-      Math.cos((b.latitude * Math.PI) / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(sa), Math.sqrt(1 - sa));
-  }
+    if (status === "granted") {
+      setLocationPermission(true);
+      startBackgroundLocationWatch();
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+    }
+  }, []);
 
   const startTracking = useCallback(async () => {
     if (Platform.OS === "web") {
-      setTracking((t) => ({ ...t, isTracking: true, isPaused: false, currentKm: 0, coords: [] }));
+      setTracking((t) => ({ ...t, isTracking: true, isPaused: false, currentKm: 0, coords: [], coveredArea: [] }));
       return;
     }
     if (!locationPermission) {
       await requestLocationPermission();
       return;
     }
-    lastCoord.current = null;
-    setTracking((t) => ({ ...t, isTracking: true, isPaused: false, currentKm: 0, coords: [], speedKmh: 0 }));
+
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    const startCoord: ZoneCoord = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+    lastCoord.current = startCoord;
+
+    setCurrentLocation(startCoord);
+    setTracking((t) => ({
+      ...t,
+      isTracking: true,
+      isPaused: false,
+      currentKm: 0,
+      coords: [startCoord],
+      coveredArea: [startCoord],
+      speedKmh: 0,
+      speedWarning: false,
+    }));
 
     locationSubscription.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.High,
         timeInterval: 1000,
-        distanceInterval: 5,
+        distanceInterval: 3,
       },
       (location) => {
         const speedMs = location.coords.speed ?? 0;
-        const speedKmh = speedMs * 3.6;
+        const speedKmh = Math.max(0, speedMs * 3.6);
         const coord: ZoneCoord = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         };
 
-        const isOverSpeed = speedKmh > 14.5;
+        setCurrentLocation(coord);
 
+        const isOverSpeed = speedKmh > 14.5;
         if (isOverSpeed) {
           if (speedWarningTimer.current) clearTimeout(speedWarningTimer.current);
           setTracking((t) => ({ ...t, isPaused: true, speedWarning: true, speedKmh }));
           speedWarningTimer.current = setTimeout(() => {
             setTracking((t) => ({ ...t, speedWarning: false }));
-          }, 3000);
+          }, 3500);
           lastCoord.current = null;
           return;
         }
@@ -381,23 +410,33 @@ export function GameProvider({ children }: { children: ReactNode }) {
             addedKm = calcDistance(lastCoord.current, coord);
           }
           lastCoord.current = coord;
+
+          const newCoords = [...t.coords, coord];
+          const newCovered = buildConvexHull([...t.coveredArea, coord]);
+
           return {
             ...t,
             isPaused: false,
             speedWarning: false,
             speedKmh,
             currentKm: t.currentKm + addedKm,
-            coords: [...t.coords, coord],
+            coords: newCoords,
+            coveredArea: newCovered,
           };
         });
       }
     );
-  }, [locationPermission]);
+  }, [locationPermission, requestLocationPermission]);
 
   const stopTracking = useCallback(() => {
     locationSubscription.current?.remove();
     locationSubscription.current = null;
-    setTracking((t) => ({ ...t, isTracking: false, isPaused: false, speedKmh: 0 }));
+    setTracking((t) => ({
+      ...t,
+      isTracking: false,
+      isPaused: false,
+      speedKmh: 0,
+    }));
   }, []);
 
   const value = useMemo(
@@ -406,7 +445,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       friends,
       leaderboard,
       tracking,
-      playerName: "Aakash D.",
+      currentLocation,
+      playerName: "You",
       playerColorIndex: 0,
       playerStreak,
       playerTotalKm,
@@ -417,10 +457,45 @@ export function GameProvider({ children }: { children: ReactNode }) {
       locationPermission,
       requestLocationPermission,
     }),
-    [zones, friends, leaderboard, tracking, playerZones, activeThreats, startTracking, stopTracking, locationPermission]
+    [zones, friends, leaderboard, tracking, currentLocation, playerZones, activeThreats, startTracking, stopTracking, locationPermission, requestLocationPermission]
   );
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
+}
+
+function buildConvexHull(points: ZoneCoord[]): ZoneCoord[] {
+  if (points.length < 3) return points;
+  const sorted = [...points].sort((a, b) =>
+    a.latitude !== b.latitude ? a.latitude - b.latitude : a.longitude - b.longitude
+  );
+
+  function cross(O: ZoneCoord, A: ZoneCoord, B: ZoneCoord): number {
+    return (
+      (A.latitude - O.latitude) * (B.longitude - O.longitude) -
+      (A.longitude - O.longitude) * (B.latitude - O.latitude)
+    );
+  }
+
+  const lower: ZoneCoord[] = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+
+  const upper: ZoneCoord[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+
+  lower.pop();
+  upper.pop();
+  return [...lower, ...upper];
 }
 
 export function useGame() {
