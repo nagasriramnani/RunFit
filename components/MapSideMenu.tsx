@@ -9,7 +9,6 @@ import {
   Dimensions,
   Pressable,
   Alert,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,15 +28,53 @@ interface Props {
 
 function MemberRow({ member, onRemove }: { member: GangMember; onRemove: () => void }) {
   const zc = ZoneColors[member.colorIndex];
+  const pulseAnim = useRef(new Animated.Value(0.6)).current;
+
+  useEffect(() => {
+    if (member.isRunning) {
+      const anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 0.6, duration: 600, useNativeDriver: true }),
+        ])
+      );
+      anim.start();
+      return () => anim.stop();
+    }
+  }, [member.isRunning]);
+
   return (
     <View style={rowStyles.container}>
       <View style={[rowStyles.avatar, { backgroundColor: zc.stroke + "18", borderColor: zc.stroke + "40" }]}>
         <Text style={[rowStyles.avatarLetter, { color: zc.stroke }]}>
           {member.name.charAt(0).toUpperCase()}
         </Text>
+        {member.isActive && (
+          <View style={[
+            rowStyles.statusDot,
+            { backgroundColor: member.isRunning ? Colors.teal : "#4ADE80" },
+          ]} />
+        )}
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={rowStyles.name}>{member.name}</Text>
+        <View style={rowStyles.nameRow}>
+          <Text style={rowStyles.name}>{member.name}</Text>
+          {member.isRunning ? (
+            <Animated.View style={[rowStyles.statusTag, rowStyles.runningTag, { opacity: pulseAnim }]}>
+              <Ionicons name="walk" size={10} color={Colors.teal} />
+              <Text style={[rowStyles.statusTagText, { color: Colors.teal }]}>Running</Text>
+            </Animated.View>
+          ) : member.isActive ? (
+            <View style={[rowStyles.statusTag, rowStyles.activeTag]}>
+              <View style={[rowStyles.onlineDot, { backgroundColor: "#4ADE80" }]} />
+              <Text style={[rowStyles.statusTagText, { color: "#4ADE80" }]}>Online</Text>
+            </View>
+          ) : (
+            <View style={[rowStyles.statusTag, rowStyles.offlineTag]}>
+              <Text style={[rowStyles.statusTagText, { color: Colors.text3 }]}>Offline</Text>
+            </View>
+          )}
+        </View>
         <View style={rowStyles.statsRow}>
           <Ionicons name="map" size={10} color={Colors.text3} />
           <Text style={rowStyles.stat}>{member.zonesOwned} zones</Text>
@@ -71,11 +108,27 @@ const rowStyles = StyleSheet.create({
   avatar: {
     width: 38, height: 38, borderRadius: 19,
     alignItems: "center", justifyContent: "center", borderWidth: 1,
+    position: "relative",
   },
   avatarLetter: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  statusDot: {
+    position: "absolute", bottom: -2, right: -2,
+    width: 12, height: 12, borderRadius: 6,
+    borderWidth: 2, borderColor: Colors.bg2,
+  },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
   statsRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   name: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
   stat: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.text2 },
+  statusTag: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5,
+  },
+  runningTag: { backgroundColor: Colors.tealDim },
+  activeTag: { backgroundColor: "rgba(74,222,128,0.12)" },
+  offlineTag: { backgroundColor: Colors.bg3 },
+  onlineDot: { width: 5, height: 5, borderRadius: 2.5 },
+  statusTagText: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 0.3 },
   removeBtn: {
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: Colors.bg3, alignItems: "center", justifyContent: "center",
@@ -89,39 +142,32 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
   const slideAnim = useRef(new Animated.Value(-MENU_WIDTH)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
+  const activeCount = gangMembers.filter((m) => m.isActive).length;
+  const runningCount = gangMembers.filter((m) => m.isRunning).length;
+
   useEffect(() => {
     if (visible) {
       Animated.parallel([
         Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 220,
-          friction: 22,
-          useNativeDriver: true,
+          toValue: 0, tension: 220, friction: 22, useNativeDriver: true,
         }),
         Animated.timing(backdropAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
+          toValue: 1, duration: 250, useNativeDriver: true,
         }),
       ]).start();
     } else {
       Animated.parallel([
         Animated.timing(slideAnim, {
-          toValue: -MENU_WIDTH,
-          duration: 220,
-          useNativeDriver: true,
+          toValue: -MENU_WIDTH, duration: 220, useNativeDriver: true,
         }),
         Animated.timing(backdropAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
+          toValue: 0, duration: 200, useNativeDriver: true,
         }),
       ]).start();
     }
   }, [visible]);
 
   const playerColor = user ? ZoneColors[user.colorIndex].stroke : Colors.teal;
-  const colorName = user ? ["Teal", "Purple", "Orange", "Red", "Blue", "Green"][user.colorIndex] : "Teal";
 
   if (!visible && slideAnim.__getValue() === -MENU_WIDTH) return null;
 
@@ -135,23 +181,14 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
         }}
       >
         <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: "rgba(0,0,0,0.55)", opacity: backdropAnim },
-          ]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.55)", opacity: backdropAnim }]}
         />
       </Pressable>
 
       <Animated.View
-        style={[
-          styles.drawer,
-          { transform: [{ translateX: slideAnim }], paddingTop: insets.top },
-        ]}
+        style={[styles.drawer, { transform: [{ translateX: slideAnim }], paddingTop: insets.top }]}
       >
-        <LinearGradient
-          colors={[Colors.bg2, Colors.bg]}
-          style={StyleSheet.absoluteFill}
-        />
+        <LinearGradient colors={[Colors.bg2, Colors.bg]} style={StyleSheet.absoluteFill} />
 
         <View style={styles.profileSection}>
           <LinearGradient
@@ -166,7 +203,9 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
             <Text style={styles.userName}>{user?.name ?? "Runner"}</Text>
             <View style={styles.userMeta}>
               <View style={[styles.colorDot, { backgroundColor: playerColor }]} />
-              <Text style={[styles.colorName, { color: playerColor }]}>{colorName}</Text>
+              <Text style={[styles.colorName, { color: playerColor }]}>
+                {user ? ["Teal", "Purple", "Orange", "Red", "Blue", "Green"][user.colorIndex] : "Teal"}
+              </Text>
               <Text style={styles.bullet}>·</Text>
               <Ionicons name="location" size={11} color={Colors.text3} />
               <Text style={styles.city}>{user?.city ?? "Mumbai"}</Text>
@@ -191,6 +230,23 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
               </View>
             )}
           </View>
+
+          {gangMembers.length > 0 && (
+            <View style={styles.statusSummary}>
+              {activeCount > 0 && (
+                <View style={styles.summaryChip}>
+                  <View style={[styles.summaryDot, { backgroundColor: "#4ADE80" }]} />
+                  <Text style={styles.summaryText}>{activeCount} online</Text>
+                </View>
+              )}
+              {runningCount > 0 && (
+                <View style={styles.summaryChip}>
+                  <Ionicons name="walk" size={11} color={Colors.teal} />
+                  <Text style={[styles.summaryText, { color: Colors.teal }]}>{runningCount} running</Text>
+                </View>
+              )}
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.addFriendBtn}
@@ -244,7 +300,7 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
           <TouchableOpacity
             style={styles.signOutRow}
             onPress={() => {
-              Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+              Alert.alert("Sign Out", "Are you sure?", [
                 { text: "Cancel", style: "cancel" },
                 {
                   text: "Sign Out",
@@ -271,12 +327,9 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
 
 const styles = StyleSheet.create({
   drawer: {
-    position: "absolute",
-    top: 0, bottom: 0, left: 0,
-    width: MENU_WIDTH,
-    borderRightWidth: 1,
-    borderRightColor: Colors.border,
-    overflow: "hidden",
+    position: "absolute", top: 0, bottom: 0, left: 0,
+    width: MENU_WIDTH, borderRightWidth: 1,
+    borderRightColor: Colors.border, overflow: "hidden",
   },
   profileSection: {
     flexDirection: "row", alignItems: "center", gap: 12,
@@ -297,7 +350,7 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: Colors.bg3, alignItems: "center", justifyContent: "center",
   },
-  divider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 0 },
+  divider: { height: 1, backgroundColor: Colors.border },
   gangHeader: { padding: 16, gap: 10 },
   gangTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   gangIconWrap: {
@@ -310,6 +363,14 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center", paddingHorizontal: 6,
   },
   memberCountText: { fontFamily: "Inter_700Bold", fontSize: 12, color: "#000" },
+  statusSummary: { flexDirection: "row", gap: 8 },
+  summaryChip: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
+    backgroundColor: Colors.bg3,
+  },
+  summaryDot: { width: 6, height: 6, borderRadius: 3 },
+  summaryText: { fontFamily: "Inter_500Medium", fontSize: 11, color: "#4ADE80" },
   addFriendBtn: { borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: Colors.teal + "30" },
   addFriendGrad: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -317,9 +378,7 @@ const styles = StyleSheet.create({
   },
   addFriendText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.teal },
   membersList: { paddingBottom: 8 },
-  emptyGang: {
-    alignItems: "center", padding: 32, gap: 8,
-  },
+  emptyGang: { alignItems: "center", padding: 32, gap: 8 },
   emptyTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.text2 },
   emptyDesc: {
     fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.text3,

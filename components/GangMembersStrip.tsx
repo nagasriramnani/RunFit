@@ -23,15 +23,20 @@ function MemberBubble({
   name,
   colorIndex,
   isYou,
+  isActive,
+  isRunning,
   delay,
 }: {
   name: string;
   colorIndex: number;
   isYou?: boolean;
+  isActive?: boolean;
+  isRunning?: boolean;
   delay: number;
 }) {
   const zc = ZoneColors[colorIndex];
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const runPulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -43,22 +48,44 @@ function MemberBubble({
     }).start();
   }, []);
 
+  useEffect(() => {
+    if (isRunning) {
+      const anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(runPulse, { toValue: 0.6, duration: 500, useNativeDriver: true }),
+          Animated.timing(runPulse, { toValue: 1, duration: 500, useNativeDriver: true }),
+        ])
+      );
+      anim.start();
+      return () => anim.stop();
+    }
+  }, [isRunning]);
+
+  const statusColor = isRunning ? Colors.teal : isActive ? "#4ADE80" : undefined;
+
   return (
     <Animated.View style={[bubbleStyles.container, { transform: [{ scale: scaleAnim }] }]}>
-      <View
+      <Animated.View
         style={[
           bubbleStyles.avatar,
-          { backgroundColor: zc.stroke + "20", borderColor: zc.stroke + (isYou ? "90" : "40") },
+          {
+            backgroundColor: zc.stroke + "20",
+            borderColor: zc.stroke + (isYou ? "90" : "40"),
+            ...(isRunning ? { opacity: runPulse } : {}),
+          },
           isYou && bubbleStyles.youAvatar,
         ]}
       >
         <Text style={[bubbleStyles.letter, { color: zc.stroke }]}>
           {name.charAt(0).toUpperCase()}
         </Text>
-        {isYou && (
-          <View style={[bubbleStyles.youDot, { backgroundColor: Colors.teal }]} />
+        {(isYou || statusColor) && (
+          <View style={[
+            bubbleStyles.statusDot,
+            { backgroundColor: isYou ? Colors.teal : statusColor },
+          ]} />
         )}
-      </View>
+      </Animated.View>
       <Text style={[bubbleStyles.label, isYou && { color: Colors.teal }]} numberOfLines={1}>
         {isYou ? "You" : name.split(" ")[0]}
       </Text>
@@ -78,9 +105,10 @@ const bubbleStyles = StyleSheet.create({
     shadowOpacity: 0.5, shadowRadius: 6, elevation: 4,
   },
   letter: { fontFamily: "Inter_700Bold", fontSize: 15 },
-  youDot: {
+  statusDot: {
     position: "absolute", bottom: -1, right: -1,
-    width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: Colors.bg2,
+    width: 10, height: 10, borderRadius: 5,
+    borderWidth: 1.5, borderColor: Colors.bg2,
   },
   label: { fontFamily: "Inter_500Medium", fontSize: 10, color: Colors.text2, textAlign: "center" },
 });
@@ -91,27 +119,18 @@ export default function GangMembersStrip({ onOpenMenu, topOffset }: Props) {
   const slideAnim = useRef(new Animated.Value(-80)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const hasMembers = gangMembers.length > 0;
+  const activeCount = gangMembers.filter((m) => m.isActive).length;
 
   useEffect(() => {
     Animated.parallel([
       Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 160,
-        friction: 18,
-        delay: 300,
-        useNativeDriver: true,
+        toValue: 0, tension: 160, friction: 18, delay: 300, useNativeDriver: true,
       }),
       Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 400,
-        delay: 300,
-        useNativeDriver: true,
+        toValue: 1, duration: 400, delay: 300, useNativeDriver: true,
       }),
     ]).start();
   }, []);
-
-  const playerColor = user ? ZoneColors[user.colorIndex].stroke : Colors.teal;
 
   return (
     <Animated.View
@@ -166,10 +185,12 @@ export default function GangMembersStrip({ onOpenMenu, topOffset }: Props) {
             key={m.id}
             name={m.name}
             colorIndex={m.colorIndex}
+            isActive={m.isActive}
+            isRunning={m.isRunning}
             delay={(i + 1) * 60}
           />
         ))}
-        {!hasMembers && (
+        {gangMembers.length === 0 && (
           <TouchableOpacity
             style={styles.invitePrompt}
             onPress={() => {
@@ -184,6 +205,13 @@ export default function GangMembersStrip({ onOpenMenu, topOffset }: Props) {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {activeCount > 0 && (
+        <View style={styles.liveTag}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>{activeCount}</Text>
+        </View>
+      )}
     </Animated.View>
   );
 }
@@ -228,8 +256,14 @@ const styles = StyleSheet.create({
   },
   inviteIconWrap: {
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: Colors.teal + "20",
-    alignItems: "center", justifyContent: "center",
+    backgroundColor: Colors.teal + "20", alignItems: "center", justifyContent: "center",
   },
   invitePromptText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.teal },
+  liveTag: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingRight: 10, height: "100%",
+    borderLeftWidth: 1, borderLeftColor: Colors.border,
+  },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#4ADE80" },
+  liveText: { fontFamily: "Inter_700Bold", fontSize: 12, color: "#4ADE80" },
 });

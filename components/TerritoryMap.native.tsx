@@ -14,11 +14,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useGame, Zone } from "@/contexts/GameContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGang } from "@/contexts/GangContext";
 import { Colors, ZoneColors } from "@/constants/colors";
 import ZoneDetailCard from "@/components/ZoneDetailCard";
 import MapSideMenu from "@/components/MapSideMenu";
 import InvitePanel from "@/components/InvitePanel";
 import GangMembersStrip from "@/components/GangMembersStrip";
+import FriendMapMarkers from "@/components/FriendMapMarkers.native";
 
 function PulsingLocationMarker({ color }: { color: string }) {
   const pulse1 = useRef(new Animated.Value(0)).current;
@@ -159,6 +161,7 @@ export default function TerritoryMap() {
     currentLocation,
   } = useGame();
   const { user } = useAuth();
+  const { gangMembers, setBaseLocation } = useGang();
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -170,14 +173,17 @@ export default function TerritoryMap() {
   const inviteTop = stripTop + 68 + 10;
 
   useEffect(() => {
-    if (currentLocation && !didCenterOnUser.current && mapRef.current) {
-      didCenterOnUser.current = true;
-      mapRef.current.animateToRegion({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        latitudeDelta: 0.04,
-        longitudeDelta: 0.04,
-      }, 1200);
+    if (currentLocation) {
+      setBaseLocation(currentLocation);
+      if (!didCenterOnUser.current && mapRef.current) {
+        didCenterOnUser.current = true;
+        mapRef.current.animateToRegion({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          latitudeDelta: 0.04,
+          longitudeDelta: 0.04,
+        }, 1200);
+      }
     }
   }, [currentLocation]);
 
@@ -291,6 +297,8 @@ export default function TerritoryMap() {
             <PulsingLocationMarker color={playerColor} />
           </Marker>
         )}
+
+        <FriendMapMarkers members={gangMembers} />
       </MapView>
 
       <GangMembersStrip

@@ -7,16 +7,19 @@ DAUDLO is a gamified territory-based running app for Indian Gen Z. Players "own"
 - **Frontend**: Expo Router with file-based routing, React Native
 - **Backend**: Express.js on port 5000 (API + landing page)
 - **Frontend dev server**: Port 8081 (Expo Metro)
-- **State**: React Context (AuthContext + GameContext) + AsyncStorage
+- **State**: React Context (AuthContext + GameContext + GangContext) + AsyncStorage
 - **Navigation**: 4-tab layout — Map, War Room, Rankings, Profile
 
 ## Gang / Friends Feature
 - `GangContext` (contexts/GangContext.tsx) — persists gang members in AsyncStorage
 - `MapSideMenu` (components/MapSideMenu.tsx) — side drawer from left: profile, gang list, add friend, sign out
-- `GangMembersStrip` (components/GangMembersStrip.tsx) — floating strip at top of map with hamburger + member avatars
-- `InvitePanel` (components/InvitePanel.tsx) — overlay on map: animated loading dots → invite link + WhatsApp/Instagram/Facebook/More share buttons
+- `GangMembersStrip` (components/GangMembersStrip.tsx) — floating strip at top of map with hamburger + member avatars + running/active status dots + live count
+- `InvitePanel` (components/InvitePanel.tsx) — two-tab overlay: "Share Link" (WhatsApp/Instagram/Facebook/More) + "Join with Code" (input + success animation)
+- `FriendMapMarkers.native.tsx` — friend location markers on native map with pulsing rings + dashed running path polylines
 - Invite link format: `https://daudlo.app/join/DAUDLO_XXXXXXXX`
+- Demo codes: DAUDLO_INV_ROHIT, DAUDLO_INV_PRIYA, DAUDLO_INV_ARJUN, DAUDLO_INV_NEHA, DAUDLO_INV_VIKRAM
 - GangProvider wraps AuthProvider in root layout
+- setBaseLocation anchors friend positions near user's real GPS location
 
 ## Auth Flow
 - `AuthContext` (contexts/AuthContext.tsx) — Google-style local profile auth
