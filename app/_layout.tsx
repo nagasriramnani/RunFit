@@ -1,4 +1,3 @@
-// template
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -14,8 +13,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
+import { GameProvider } from "@/contexts/GameContext";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
@@ -45,9 +44,11 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView>
+        <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>
-            <RootLayoutNav />
+            <GameProvider>
+              <RootLayoutNav />
+            </GameProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
