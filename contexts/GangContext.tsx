@@ -28,6 +28,7 @@ export interface GangMember {
   isRunning: boolean;
   liveLocation: MemberLocation | null;
   runningPath: MemberLocation[];
+  profilePicture?: string | null;
 }
 
 interface GangContextValue {
@@ -43,6 +44,7 @@ interface GangContextValue {
   registerUser: (name: string, email: string, city: string, colorIndex: number) => Promise<void>;
   updateMyLocation: (lat: number, lng: number, isTracking: boolean) => void;
   refreshFriends: () => Promise<void>;
+  apiUrl: (path: string) => string;
 }
 
 const GangContext = createContext<GangContextValue | null>(null);
@@ -142,14 +144,15 @@ export function GangProvider({ children }: { children: ReactNode }) {
           id: f.id,
           name: f.name,
           colorIndex: f.colorIndex,
-          zonesOwned: 0,
-          totalKm: 0,
-          streak: 0,
+          zonesOwned: f.zonesOwned || 0,
+          totalKm: f.totalKm || 0,
+          streak: f.streak || 0,
           joinedAt: f.lastSeen || now,
           isActive,
           isRunning,
           liveLocation,
           runningPath: [],
+          profilePicture: f.profilePicture || null,
         };
       });
       setGangMembers(members);
@@ -254,6 +257,7 @@ export function GangProvider({ children }: { children: ReactNode }) {
       registerUser,
       updateMyLocation,
       refreshFriends,
+      apiUrl,
     }),
     [
       gangMembers,

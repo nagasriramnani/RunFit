@@ -29,6 +29,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           city: city || user.city,
           colorIndex: colorIndex ?? user.color_index,
           inviteCode: user.invite_code,
+          totalKm: parseFloat(user.total_km) || 0,
+          streak: user.streak || 0,
+          zonesOwned: user.zones_owned || 0,
+          profilePicture: user.profile_picture || null,
         });
       }
       const id =
@@ -48,6 +52,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         city: city || "Mumbai",
         colorIndex: colorIndex ?? 0,
         inviteCode,
+        totalKm: 0,
+        streak: 0,
+        zonesOwned: 0,
+        profilePicture: null,
       });
     } catch (e: any) {
       console.error("Register error:", e);
@@ -73,6 +81,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         city: u.city,
         colorIndex: u.color_index,
         inviteCode: u.invite_code,
+        totalKm: parseFloat(u.total_km) || 0,
+        streak: u.streak || 0,
+        zonesOwned: u.zones_owned || 0,
+        profilePicture: u.profile_picture || null,
       });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
@@ -170,13 +182,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/users/stats", async (req, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) return res.status(401).json({ error: "No user ID" });
+      const { addKm, streak, zonesOwned } = req.body;
+      const updates: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
+
+      if (addKm !== undefined && addKm > 0) {
+        updates.push(`total_km = total_km + $${idx}`);
+        values.push(addKm);
+        idx++;
+      }
+      if (streak !== undefined) {
+        updates.push(`streak = $${idx}`);
+        values.push(streak);
+        idx++;
+      }
+      if (zonesOwned !== undefined) {
+        updates.push(`zones_owned = $${idx}`);
+        values.push(zonesOwned);
+        idx++;
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: "No stats to update" });
+      }
+
+      updates.push(`last_seen = $${idx}`);
+      values.push(Date.now());
+      idx++;
+      values.push(userId);
+
+      await pool.query(
+        `UPDATE daudlo_users SET ${updates.join(", ")} WHERE id = $${idx}`,
+        values
+      );
+
+      const result = await pool.query(
+        "SELECT total_km, streak, zones_owned FROM daudlo_users WHERE id = $1",
+        [userId]
+      );
+      const u = result.rows[0];
+      return res.json({
+        totalKm: parseFloat(u.total_km) || 0,
+        streak: u.streak || 0,
+        zonesOwned: u.zones_owned || 0,
+      });
+    } catch (e: any) {
+      console.error("Stats error:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/users/profile-picture", async (req, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) return res.status(401).json({ error: "No user ID" });
+      const { profilePicture } = req.body;
+      if (!profilePicture) return res.status(400).json({ error: "profilePicture required" });
+
+      await pool.query(
+        "UPDATE daudlo_users SET profile_picture = $1 WHERE id = $2",
+        [profilePicture, userId]
+      );
+      return res.json({ success: true });
+    } catch (e: any) {
+      console.error("Profile picture error:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/leaderboard", async (req, res) => {
+    try {
+      const city = req.query.city as string;
+      let query: string;
+      let params: any[] = [];
+
+      if (city && city !== "all" && city !== "All Cities") {
+        query = `SELECT id, name, email, city, color_index, total_km, streak, zones_owned, profile_picture
+                 FROM daudlo_users WHERE city = $1 ORDER BY total_km DESC LIMIT 50`;
+        params = [city];
+      } else {
+        query = `SELECT id, name, email, city, color_index, total_km, streak, zones_owned, profile_picture
+                 FROM daudlo_users ORDER BY total_km DESC LIMIT 50`;
+      }
+
+      const result = await pool.query(query, params);
+      const entries = result.rows.map((r, i) => ({
+        id: r.id,
+        name: r.name,
+        city: r.city,
+        colorIndex: r.color_index,
+        totalKm: parseFloat(r.total_km) || 0,
+        streak: r.streak || 0,
+        zonesOwned: r.zones_owned || 0,
+        profilePicture: r.profile_picture || null,
+        rank: i + 1,
+      }));
+      return res.json({ entries });
+    } catch (e: any) {
+      console.error("Leaderboard error:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/users/friends", async (req, res) => {
     try {
       const userId = req.headers["x-user-id"] as string;
       if (!userId) return res.status(401).json({ error: "No user ID" });
       const result = await pool.query(
         `SELECT u.id, u.name, u.email, u.city, u.color_index, 
-                u.last_lat, u.last_lng, u.is_tracking, u.last_seen
+                u.last_lat, u.last_lng, u.is_tracking, u.last_seen,
+                u.total_km, u.streak, u.zones_owned, u.profile_picture
          FROM friendships f
          JOIN daudlo_users u ON u.id = f.friend_id
          WHERE f.user_id = $1
@@ -195,6 +315,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isTracking: r.is_tracking,
         lastSeen: parseInt(r.last_seen),
         isActive: now - parseInt(r.last_seen) < 120000,
+        totalKm: parseFloat(r.total_km) || 0,
+        streak: r.streak || 0,
+        zonesOwned: r.zones_owned || 0,
+        profilePicture: r.profile_picture || null,
       }));
       return res.json({ friends });
     } catch (e: any) {

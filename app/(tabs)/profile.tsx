@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,15 +7,17 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as ExpoClipboard from "expo-clipboard";
-import { useGame, Friend } from "@/contexts/GameContext";
+import * as ImagePicker from "expo-image-picker";
+import { useGame } from "@/contexts/GameContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGang } from "@/contexts/GangContext";
+import { useGang, GangMember } from "@/contexts/GangContext";
 import { Colors, ZoneColors } from "@/constants/colors";
 
 function StreakIcon({ streak }: { streak: number }) {
@@ -26,63 +28,34 @@ function StreakIcon({ streak }: { streak: number }) {
   return <Ionicons name="flame" size={16} color="#CD7F32" />;
 }
 
-function WinLossBar({ wins, losses }: { wins: number; losses: number }) {
-  const total = wins + losses;
-  if (total === 0) return null;
-  return (
-    <View style={wlStyles.container}>
-      <View style={[wlStyles.winSeg, { flex: wins || 0.1 }]}>
-        <Text style={wlStyles.winLabel}>{wins}W</Text>
-      </View>
-      <View style={[wlStyles.lossSeg, { flex: losses || 0.1 }]}>
-        <Text style={wlStyles.lossLabel}>{losses}L</Text>
-      </View>
-    </View>
-  );
-}
-
-const wlStyles = StyleSheet.create({
-  container: { flexDirection: "row", height: 20, borderRadius: 6, overflow: "hidden", marginTop: 6 },
-  winSeg: { backgroundColor: "rgba(0,229,200,0.25)", alignItems: "center", justifyContent: "center" },
-  lossSeg: { backgroundColor: "rgba(255,61,87,0.2)", alignItems: "center", justifyContent: "center" },
-  winLabel: { fontFamily: "Inter_700Bold", fontSize: 10, color: Colors.teal },
-  lossLabel: { fontFamily: "Inter_700Bold", fontSize: 10, color: Colors.red },
-});
-
-function FriendCard({ friend }: { friend: Friend }) {
-  const zc = ZoneColors[friend.colorIndex];
-  const total = friend.wins + friend.losses;
-  const isWinning = friend.wins >= friend.losses;
+function RivalCard({ member }: { member: GangMember }) {
+  const zc = ZoneColors[member.colorIndex];
 
   return (
     <View style={fcStyles.container}>
       <View style={[fcStyles.avatar, { backgroundColor: zc.stroke + "15", borderColor: zc.stroke + "40" }]}>
-        <Text style={[fcStyles.avatarText, { color: zc.stroke }]}>{friend.name.charAt(0)}</Text>
+        {member.profilePicture ? (
+          <Image source={{ uri: member.profilePicture }} style={fcStyles.avatarImg} />
+        ) : (
+          <Text style={[fcStyles.avatarText, { color: zc.stroke }]}>{member.name.charAt(0)}</Text>
+        )}
       </View>
       <View style={{ flex: 1 }}>
-        <View style={fcStyles.topRow}>
-          <Text style={fcStyles.name}>{friend.name}</Text>
-          <View style={[fcStyles.recordBadge, { backgroundColor: isWinning ? Colors.tealDim : Colors.redDim }]}>
-            <Text style={[fcStyles.record, { color: isWinning ? Colors.teal : Colors.red }]}>
-              {friend.wins}W–{friend.losses}L
-            </Text>
-          </View>
-        </View>
+        <Text style={fcStyles.name}>{member.name}</Text>
         <View style={fcStyles.statsRow}>
           <View style={fcStyles.stat}>
             <Ionicons name="map" size={11} color={Colors.text3} />
-            <Text style={fcStyles.statText}>{friend.zonesOwned} zones</Text>
+            <Text style={fcStyles.statText}>{member.zonesOwned} zones</Text>
           </View>
           <View style={fcStyles.stat}>
             <Ionicons name="footsteps" size={11} color={Colors.text3} />
-            <Text style={fcStyles.statText}>{friend.totalKm.toFixed(0)} km</Text>
+            <Text style={fcStyles.statText}>{member.totalKm.toFixed(1)} km</Text>
           </View>
           <View style={fcStyles.stat}>
-            <StreakIcon streak={friend.streak} />
-            <Text style={fcStyles.statText}>{friend.streak}d</Text>
+            <StreakIcon streak={member.streak} />
+            <Text style={fcStyles.statText}>{member.streak}d</Text>
           </View>
         </View>
-        <WinLossBar wins={friend.wins} losses={friend.losses} />
       </View>
     </View>
   );
@@ -96,39 +69,87 @@ const fcStyles = StyleSheet.create({
   },
   avatar: {
     width: 46, height: 46, borderRadius: 23,
-    alignItems: "center", justifyContent: "center", borderWidth: 1,
+    alignItems: "center", justifyContent: "center", borderWidth: 1, overflow: "hidden",
   },
+  avatarImg: { width: 46, height: 46, borderRadius: 23 },
   avatarText: { fontFamily: "Inter_700Bold", fontSize: 18 },
-  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  name: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.text },
-  recordBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7 },
-  record: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  name: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.text, marginBottom: 4 },
   statsRow: { flexDirection: "row", gap: 12, marginBottom: 2 },
   stat: { flexDirection: "row", alignItems: "center", gap: 4 },
   statText: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.text2 },
 });
 
 function PlayerHeader() {
-  const { playerStreak, playerTotalKm, playerZones } = useGame();
+  const { playerStreak, playerTotalKm, playerZonesOwned } = useGame();
   const { user } = useAuth();
+  const { serverUserId, apiUrl } = useGang();
+  const [profilePic, setProfilePic] = useState<string | null>(null);
   const colorIndex = user?.colorIndex ?? 0;
   const zc = ZoneColors[colorIndex];
   const displayName = user?.name ?? "Runner";
   const city = user?.city ?? "Mumbai";
 
+  React.useEffect(() => {
+    if (serverUserId) {
+      fetch(apiUrl("/api/users/me"), {
+        headers: { "x-user-id": serverUserId },
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.profilePicture) setProfilePic(data.profilePicture);
+        })
+        .catch(() => {});
+    }
+  }, [serverUserId]);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const uri = asset.base64
+        ? `data:image/jpeg;base64,${asset.base64}`
+        : asset.uri;
+      setProfilePic(uri);
+
+      if (serverUserId) {
+        fetch(apiUrl("/api/users/profile-picture"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": serverUserId,
+          },
+          body: JSON.stringify({ profilePicture: uri }),
+        }).catch(console.error);
+      }
+    }
+  };
+
   return (
     <LinearGradient colors={[Colors.bg3, Colors.bg2]} style={phStyles.container}>
-      <View style={phStyles.avatarWrap}>
-        <LinearGradient
-          colors={[zc.stroke + "50", zc.stroke + "15"]}
-          style={phStyles.avatarGrad}
-        >
-          <Text style={[phStyles.avatarText, { color: zc.stroke }]}>
-            {displayName.charAt(0).toUpperCase()}
-          </Text>
-        </LinearGradient>
-        <View style={[phStyles.statusDot, { backgroundColor: Colors.teal }]} />
-      </View>
+      <TouchableOpacity onPress={pickImage} style={phStyles.avatarWrap} activeOpacity={0.7}>
+        {profilePic ? (
+          <Image source={{ uri: profilePic }} style={phStyles.avatarGrad} />
+        ) : (
+          <LinearGradient
+            colors={[zc.stroke + "50", zc.stroke + "15"]}
+            style={phStyles.avatarGrad}
+          >
+            <Text style={[phStyles.avatarText, { color: zc.stroke }]}>
+              {displayName.charAt(0).toUpperCase()}
+            </Text>
+          </LinearGradient>
+        )}
+        <View style={phStyles.cameraIcon}>
+          <Ionicons name="camera" size={12} color={Colors.text} />
+        </View>
+      </TouchableOpacity>
 
       <View style={phStyles.info}>
         <Text style={phStyles.name}>{displayName}</Text>
@@ -138,10 +159,12 @@ function PlayerHeader() {
             <Ionicons name="location" size={11} color={Colors.teal} />
             <Text style={[phStyles.badgeText, { color: Colors.teal }]}>{city}</Text>
           </View>
-          <View style={[phStyles.badge, { backgroundColor: "rgba(255,140,66,0.12)" }]}>
-            <Ionicons name="flame" size={11} color={Colors.orange} />
-            <Text style={[phStyles.badgeText, { color: Colors.orange }]}>{playerStreak} day streak</Text>
-          </View>
+          {playerStreak > 0 && (
+            <View style={[phStyles.badge, { backgroundColor: "rgba(255,140,66,0.12)" }]}>
+              <Ionicons name="flame" size={11} color={Colors.orange} />
+              <Text style={[phStyles.badgeText, { color: Colors.orange }]}>{playerStreak} day streak</Text>
+            </View>
+          )}
           <View style={[phStyles.badge, { backgroundColor: zc.stroke + "15" }]}>
             <View style={[phStyles.colorDot, { backgroundColor: zc.stroke }]} />
             <Text style={[phStyles.badgeText, { color: zc.stroke }]}>
@@ -153,12 +176,12 @@ function PlayerHeader() {
 
       <View style={phStyles.statsGrid}>
         <View style={phStyles.statItem}>
-          <Text style={phStyles.statValue}>{playerTotalKm.toFixed(0)}</Text>
+          <Text style={phStyles.statValue}>{playerTotalKm.toFixed(1)}</Text>
           <Text style={phStyles.statLabel}>km run</Text>
         </View>
         <View style={phStyles.statDivider} />
         <View style={phStyles.statItem}>
-          <Text style={phStyles.statValue}>{playerZones.length}</Text>
+          <Text style={phStyles.statValue}>{playerZonesOwned}</Text>
           <Text style={phStyles.statLabel}>territories</Text>
         </View>
         <View style={phStyles.statDivider} />
@@ -179,12 +202,13 @@ const phStyles = StyleSheet.create({
   avatarWrap: { position: "relative", alignSelf: "flex-start", marginBottom: 14 },
   avatarGrad: {
     width: 72, height: 72, borderRadius: 36,
-    alignItems: "center", justifyContent: "center",
+    alignItems: "center", justifyContent: "center", overflow: "hidden",
   },
   avatarText: { fontFamily: "Inter_700Bold", fontSize: 28 },
-  statusDot: {
-    position: "absolute", bottom: 2, right: 2,
-    width: 14, height: 14, borderRadius: 7,
+  cameraIcon: {
+    position: "absolute", bottom: 0, right: 0,
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: Colors.bg3, alignItems: "center", justifyContent: "center",
     borderWidth: 2, borderColor: Colors.bg2,
   },
   info: { marginBottom: 18 },
@@ -257,7 +281,7 @@ const icStyles = StyleSheet.create({
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { friends } = useGame();
+  const { gangMembers } = useGang();
   const { signOut } = useAuth();
   const topPad = Platform.OS === "web" ? insets.top + 67 : insets.top;
 
@@ -301,11 +325,18 @@ export default function ProfileScreen() {
             <Ionicons name="people" size={16} color={Colors.teal} />
             <Text style={styles.sectionTitle}>Rivals</Text>
             <View style={styles.countBadge}>
-              <Text style={styles.countText}>{friends.length}</Text>
+              <Text style={styles.countText}>{gangMembers.length}</Text>
             </View>
           </View>
-          <Text style={styles.sectionSub}>Head-to-head territory battles</Text>
-          {friends.map((f) => <FriendCard key={f.id} friend={f} />)}
+          <Text style={styles.sectionSub}>Your connected running rivals</Text>
+          {gangMembers.length === 0 ? (
+            <View style={styles.emptyRivals}>
+              <Ionicons name="people-outline" size={28} color={Colors.text3} />
+              <Text style={styles.emptyText}>No rivals yet. Share your invite code to add friends!</Text>
+            </View>
+          ) : (
+            gangMembers.map((m) => <RivalCard key={m.id} member={m} />)
+          )}
         </View>
 
         <View style={styles.section}>
@@ -359,6 +390,12 @@ const styles = StyleSheet.create({
   sectionSub: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.text2, marginBottom: 14 },
   countBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: Colors.tealDim },
   countText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.teal },
+  emptyRivals: {
+    alignItems: "center", gap: 8, padding: 24,
+    backgroundColor: Colors.bg2, borderRadius: 14,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  emptyText: { fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.text2, textAlign: "center" },
   tiersCard: {
     backgroundColor: Colors.bg2, borderRadius: 14, padding: 4,
     borderWidth: 1, borderColor: Colors.border,

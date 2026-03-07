@@ -65,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await AsyncStorage.removeItem(AUTH_KEY);
+    await AsyncStorage.removeItem("@daudlo_server_user");
     setUser(null);
   }
 

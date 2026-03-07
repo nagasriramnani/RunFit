@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,12 +6,22 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  Modal,
+  FlatList,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useGame, LeaderboardEntry } from "@/contexts/GameContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGang } from "@/contexts/GangContext";
 import { Colors, ZoneColors } from "@/constants/colors";
+
+const CITIES = [
+  "All Cities", "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai",
+  "Pune", "Kolkata", "Ahmedabad", "Jaipur", "Surat",
+];
 
 type SortKey = "zones" | "km" | "streak";
 
@@ -22,9 +32,8 @@ function RankMedal({ rank }: { rank: number }) {
   return <Text style={styles.rankNum}>{rank}</Text>;
 }
 
-function LeaderRow({ entry, sortKey }: { entry: LeaderboardEntry; sortKey: SortKey }) {
-  const isPlayer = entry.id === "player";
-  const zc = ZoneColors[entry.colorIndex];
+function LeaderRow({ entry, sortKey, isPlayer }: { entry: LeaderboardEntry; sortKey: SortKey; isPlayer: boolean }) {
+  const zc = ZoneColors[entry.colorIndex % ZoneColors.length];
 
   const highlightValue =
     sortKey === "zones"
@@ -46,14 +55,18 @@ function LeaderRow({ entry, sortKey }: { entry: LeaderboardEntry; sortKey: SortK
       </View>
 
       <View style={[styles.avatar, { backgroundColor: zc.stroke + "20", borderColor: zc.stroke + "50" }]}>
-        <Text style={[styles.avatarText, { color: zc.stroke }]}>
-          {entry.name.charAt(0)}
-        </Text>
+        {entry.profilePicture ? (
+          <Image source={{ uri: entry.profilePicture }} style={styles.avatarImg} />
+        ) : (
+          <Text style={[styles.avatarText, { color: zc.stroke }]}>
+            {entry.name.charAt(0)}
+          </Text>
+        )}
       </View>
 
       <View style={styles.infoCol}>
-        <Text style={[styles.entryName, isPlayer && styles.playerName]}>
-          {entry.name}
+        <Text style={[styles.entryName, isPlayer && styles.playerName]} numberOfLines={1}>
+          {isPlayer ? "You" : entry.name}
         </Text>
         <View style={styles.miniStats}>
           <View style={styles.miniStat}>
@@ -62,7 +75,7 @@ function LeaderRow({ entry, sortKey }: { entry: LeaderboardEntry; sortKey: SortK
           </View>
           <View style={styles.miniStat}>
             <Ionicons name="footsteps" size={10} color={Colors.text3} />
-            <Text style={styles.miniStatText}>{entry.totalKm.toFixed(0)} km</Text>
+            <Text style={styles.miniStatText}>{entry.totalKm.toFixed(1)}</Text>
           </View>
           <View style={styles.miniStat}>
             <Ionicons name="flame" size={10} color={Colors.text3} />
@@ -71,28 +84,8 @@ function LeaderRow({ entry, sortKey }: { entry: LeaderboardEntry; sortKey: SortK
         </View>
       </View>
 
-      <View style={[
-        styles.highlightBadge,
-        {
-          backgroundColor:
-            sortKey === "zones"
-              ? Colors.tealDim
-              : sortKey === "km"
-              ? "rgba(168,85,247,0.1)"
-              : "rgba(255,140,66,0.1)",
-        },
-      ]}>
-        <Text style={[
-          styles.highlightValue,
-          {
-            color:
-              sortKey === "zones"
-                ? Colors.teal
-                : sortKey === "km"
-                ? Colors.purple
-                : Colors.orange,
-          },
-        ]}>
+      <View style={[styles.highlightBadge, { backgroundColor: zc.stroke + "15" }]}>
+        <Text style={[styles.highlightValue, { color: zc.stroke }]}>
           {highlightValue}
         </Text>
       </View>
@@ -102,9 +95,17 @@ function LeaderRow({ entry, sortKey }: { entry: LeaderboardEntry; sortKey: SortK
 
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
-  const { leaderboard } = useGame();
-  const [sortKey, setSortKey] = useState<SortKey>("zones");
+  const { user } = useAuth();
+  const { serverUserId } = useGang();
+  const { leaderboard, fetchLeaderboard } = useGame();
+  const [sortKey, setSortKey] = useState<SortKey>("km");
+  const [selectedCity, setSelectedCity] = useState(user?.city || "All Cities");
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const topPad = Platform.OS === "web" ? insets.top + 67 : insets.top;
+
+  useEffect(() => {
+    fetchLeaderboard(selectedCity === "All Cities" ? "all" : selectedCity);
+  }, [selectedCity]);
 
   const sorted = [...leaderboard].sort((a, b) => {
     if (sortKey === "zones") return b.zonesOwned - a.zonesOwned;
@@ -126,7 +127,15 @@ export default function LeaderboardScreen() {
       >
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.screenLabel}>MUMBAI</Text>
+            <TouchableOpacity
+              style={styles.citySelector}
+              onPress={() => setCityPickerOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="location" size={12} color={Colors.teal} />
+              <Text style={styles.screenLabel}>{selectedCity.toUpperCase()}</Text>
+              <Ionicons name="chevron-down" size={14} color={Colors.teal} />
+            </TouchableOpacity>
             <Text style={styles.screenTitle}>City Rankings</Text>
           </View>
           <View style={styles.liveBadge}>
@@ -154,44 +163,98 @@ export default function LeaderboardScreen() {
           ))}
         </View>
 
-        <View style={styles.podium}>
-          {sorted.slice(0, 3).map((entry) => {
-            const zc = ZoneColors[entry.colorIndex];
-            const heights = [88, 64, 56];
-            return (
-              <View
-                key={entry.id}
-                style={[
-                  styles.podiumCol,
-                  entry.rank === 1 && styles.podiumFirst,
-                ]}
-              >
-                <View style={[styles.podiumAvatar, { backgroundColor: zc.stroke + "20", borderColor: zc.stroke }]}>
-                  <Text style={[styles.podiumAvatarText, { color: zc.stroke }]}>
-                    {entry.name.charAt(0)}
-                  </Text>
-                  {entry.rank === 1 && (
-                    <View style={styles.crownContainer}>
-                      <Ionicons name="trophy" size={14} color="#FFD700" />
+        {sorted.length > 0 ? (
+          <>
+            <View style={styles.podium}>
+              {sorted.slice(0, 3).map((entry) => {
+                const zc = ZoneColors[entry.colorIndex % ZoneColors.length];
+                const heights = [88, 64, 56];
+                const isPlayer = entry.id === serverUserId;
+                return (
+                  <View
+                    key={entry.id}
+                    style={[
+                      styles.podiumCol,
+                      entry.rank === 1 && styles.podiumFirst,
+                    ]}
+                  >
+                    <View style={[styles.podiumAvatar, { backgroundColor: zc.stroke + "20", borderColor: zc.stroke }]}>
+                      {entry.profilePicture ? (
+                        <Image source={{ uri: entry.profilePicture }} style={styles.podiumAvatarImg} />
+                      ) : (
+                        <Text style={[styles.podiumAvatarText, { color: zc.stroke }]}>
+                          {entry.name.charAt(0)}
+                        </Text>
+                      )}
+                      {entry.rank === 1 && (
+                        <View style={styles.crownContainer}>
+                          <Ionicons name="trophy" size={14} color="#FFD700" />
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
-                <Text style={styles.podiumName} numberOfLines={1}>{entry.name.split(" ")[0]}</Text>
-                <View style={[styles.podiumBlock, { height: heights[entry.rank - 1], backgroundColor: zc.stroke + "20", borderColor: zc.stroke + "40" }]}>
-                  <Text style={[styles.podiumRank, { color: zc.stroke }]}>#{entry.rank}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
+                    <Text style={styles.podiumName} numberOfLines={1}>
+                      {isPlayer ? "You" : entry.name.split(" ")[0]}
+                    </Text>
+                    <View style={[styles.podiumBlock, { height: heights[entry.rank - 1], backgroundColor: zc.stroke + "20", borderColor: zc.stroke + "40" }]}>
+                      <Text style={[styles.podiumRank, { color: zc.stroke }]}>#{entry.rank}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
 
-        <View style={styles.listSection}>
-          <Text style={styles.listSectionTitle}>Full Rankings</Text>
-          {sorted.map((entry) => (
-            <LeaderRow key={entry.id} entry={entry} sortKey={sortKey} />
-          ))}
-        </View>
+            <View style={styles.listSection}>
+              <Text style={styles.listSectionTitle}>Full Rankings</Text>
+              {sorted.map((entry) => (
+                <LeaderRow key={entry.id} entry={entry} sortKey={sortKey} isPlayer={entry.id === serverUserId} />
+              ))}
+            </View>
+          </>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="trophy-outline" size={36} color={Colors.text3} />
+            <Text style={styles.emptyText}>No runners in this city yet. Start running to be the first!</Text>
+          </View>
+        )}
       </ScrollView>
+
+      <Modal visible={cityPickerOpen} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setCityPickerOpen(false)}
+        >
+          <View style={[styles.cityPickerContainer, { marginTop: topPad + 80 }]}>
+            <Text style={styles.cityPickerTitle}>Select City</Text>
+            <FlatList
+              data={CITIES}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.cityOption,
+                    selectedCity === item && styles.cityOptionActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedCity(item);
+                    setCityPickerOpen(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.cityOptionText,
+                    selectedCity === item && styles.cityOptionTextActive,
+                  ]}>
+                    {item}
+                  </Text>
+                  {selectedCity === item && (
+                    <Ionicons name="checkmark" size={18} color={Colors.teal} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -205,12 +268,14 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 24,
   },
+  citySelector: {
+    flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4,
+  },
   screenLabel: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 11,
     color: Colors.teal,
     letterSpacing: 2.5,
-    marginBottom: 4,
   },
   screenTitle: { fontFamily: "Inter_700Bold", fontSize: 26, color: Colors.text },
   liveBadge: {
@@ -267,8 +332,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
+    overflow: "hidden",
   },
   podiumAvatarText: { fontFamily: "Inter_700Bold", fontSize: 20 },
+  podiumAvatarImg: { width: 52, height: 52, borderRadius: 26 },
   crownContainer: {
     position: "absolute",
     top: -14,
@@ -329,7 +396,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+    overflow: "hidden",
   },
+  avatarImg: { width: 40, height: 40, borderRadius: 20 },
   avatarText: { fontFamily: "Inter_700Bold", fontSize: 16 },
   infoCol: { flex: 1, gap: 4 },
   entryName: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
@@ -343,4 +412,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   highlightValue: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  emptyState: {
+    alignItems: "center", gap: 12, padding: 40,
+    backgroundColor: Colors.bg2, borderRadius: 14,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  emptyText: { fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.text2, textAlign: "center" },
+  modalBackdrop: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-start",
+  },
+  cityPickerContainer: {
+    marginHorizontal: 20, backgroundColor: Colors.bg2, borderRadius: 16,
+    maxHeight: 400, overflow: "hidden",
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  cityPickerTitle: {
+    fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.text,
+    padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  cityOption: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: Colors.border + "50",
+  },
+  cityOptionActive: { backgroundColor: Colors.tealDim },
+  cityOptionText: { fontFamily: "Inter_500Medium", fontSize: 15, color: Colors.text },
+  cityOptionTextActive: { color: Colors.teal, fontFamily: "Inter_600SemiBold" },
 });

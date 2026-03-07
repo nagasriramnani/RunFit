@@ -172,7 +172,7 @@ const zrStyles = StyleSheet.create({
 
 export default function WarRoomScreen() {
   const insets = useSafeAreaInsets();
-  const { playerStreak, playerTotalKm, playerZones, activeThreats } = useGame();
+  const { playerStreak, playerTotalKm, playerZonesOwned, playerZones, activeThreats } = useGame();
   const { user } = useAuth();
   const displayName = user?.name ?? "Runner";
   const topPad = Platform.OS === "web" ? insets.top + 67 : insets.top;
@@ -188,7 +188,7 @@ export default function WarRoomScreen() {
             <Text style={styles.screenLabel}>WAR ROOM</Text>
             <Text style={styles.playerName}>{displayName}</Text>
           </View>
-          <StreakBadge streak={playerStreak} />
+          {playerStreak > 0 && <StreakBadge streak={playerStreak} />}
         </View>
 
         <View style={styles.statsGrid}>
@@ -198,12 +198,12 @@ export default function WarRoomScreen() {
             <Ionicons name="flame" size={20} color={Colors.orange} style={styles.statIcon} />
           </LinearGradient>
           <LinearGradient colors={[Colors.bg3, Colors.bg2]} style={styles.statCard}>
-            <Text style={styles.statValue}>{playerTotalKm.toFixed(0)}</Text>
+            <Text style={styles.statValue}>{playerTotalKm.toFixed(1)}</Text>
             <Text style={styles.statLabel}>Total km</Text>
             <Ionicons name="footsteps" size={20} color={Colors.teal} style={styles.statIcon} />
           </LinearGradient>
           <LinearGradient colors={[Colors.bg3, Colors.bg2]} style={styles.statCard}>
-            <Text style={styles.statValue}>{playerZones.length}</Text>
+            <Text style={styles.statValue}>{playerZonesOwned}</Text>
             <Text style={styles.statLabel}>Zones Held</Text>
             <Ionicons name="map" size={20} color={Colors.purple} style={styles.statIcon} />
           </LinearGradient>
@@ -227,7 +227,7 @@ export default function WarRoomScreen() {
             <Ionicons name="shield-checkmark" size={16} color={Colors.teal} />
             <Text style={styles.sectionTitle}>My Territories</Text>
             <View style={[styles.countBadge, { backgroundColor: Colors.tealDim }]}>
-              <Text style={[styles.countText, { color: Colors.teal }]}>{playerZones.length}</Text>
+              <Text style={[styles.countText, { color: Colors.teal }]}>{playerZonesOwned}</Text>
             </View>
           </View>
           {playerZones.length === 0 ? (
