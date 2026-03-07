@@ -16,7 +16,7 @@ DAUDLO is a gamified territory-based running app for Indian Gen Z. Players "own"
 - `GangMembersStrip` (components/GangMembersStrip.tsx) — floating strip at top of map with hamburger + member avatars + running/active status dots + live count
 - `InvitePanel` (components/InvitePanel.tsx) — two-tab overlay: "Share Link" (WhatsApp/Instagram/Facebook/More) + "Join with Code" (input + success animation)
 - `FriendMapMarkers.native.tsx` — friend location markers on native map with pulsing rings + dashed running path polylines
-- Invite link format: `https://daudlo.app/join/DAUDLO_XXXXXXXX`
+- Invite codes shared as text (e.g. DAUDLO_XXXXXXXX) — no external URL needed
 - Demo codes: DAUDLO_INV_ROHIT, DAUDLO_INV_PRIYA, DAUDLO_INV_ARJUN, DAUDLO_INV_NEHA, DAUDLO_INV_VIKRAM
 - GangProvider wraps AuthProvider in root layout
 - setBaseLocation anchors friend positions near user's real GPS location

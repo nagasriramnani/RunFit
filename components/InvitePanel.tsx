@@ -247,9 +247,8 @@ export default function InvitePanel({ visible, onClose, topOffset }: Props) {
       ]).start();
 
       generateInviteCode().then((code) => {
-        const link = `https://daudlo.app/join/${code}`;
         setTimeout(() => {
-          setInviteLink(link);
+          setInviteLink(code);
           setStage("ready");
           Animated.spring(linkAnim, {
             toValue: 1, tension: 180, friction: 18, useNativeDriver: true,
@@ -273,7 +272,7 @@ export default function InvitePanel({ visible, onClose, topOffset }: Props) {
   }, [visible]);
 
   const buildShareText = () =>
-    `🏃 Join my DAUDLO gang and let's take over the city!\n\nUse my invite link to join:\n${inviteLink}\n\nDownload DAUDLO and run to claim territories 🗺️`;
+    `Join my DAUDLO gang and let's take over the city!\n\nMy invite code: ${inviteLink}\n\nOpen DAUDLO > tap the menu > Add Gang Member > Join with Code > paste the code above`;
 
   const shareWhatsApp = () => {
     const text = buildShareText();
@@ -286,19 +285,21 @@ export default function InvitePanel({ visible, onClose, topOffset }: Props) {
   const shareInstagram = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await Share.share({ message: buildShareText(), url: inviteLink });
+      await Share.share({ message: buildShareText() });
     } catch (e) {}
   };
 
-  const shareFacebook = () => {
-    Linking.openURL(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}&quote=${encodeURIComponent(buildShareText())}`);
+  const shareFacebook = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await Share.share({ message: buildShareText() });
+    } catch (e) {}
   };
 
   const shareNative = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await Share.share({ message: buildShareText(), url: inviteLink });
+      await Share.share({ message: buildShareText() });
     } catch (e) {}
   };
 
@@ -327,7 +328,7 @@ export default function InvitePanel({ visible, onClose, topOffset }: Props) {
             {activeTab === "invite" ? "Invite to Gang" : "Join a Gang"}
           </Text>
           <Text style={styles.subtitle}>
-            {activeTab === "invite" ? "Share the link with friends" : "Enter a friend's code"}
+            {activeTab === "invite" ? "Share your code with friends" : "Enter a friend's code"}
           </Text>
         </View>
         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
@@ -373,7 +374,7 @@ export default function InvitePanel({ visible, onClose, topOffset }: Props) {
             ]}
           >
             <View style={styles.linkSection}>
-              <Text style={styles.linkLabel}>YOUR INVITE LINK</Text>
+              <Text style={styles.linkLabel}>YOUR INVITE CODE</Text>
               <LinkBox link={inviteLink} />
             </View>
             <Text style={styles.shareLabel}>SHARE VIA</Text>
