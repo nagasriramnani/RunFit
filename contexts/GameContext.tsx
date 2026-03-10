@@ -8,13 +8,18 @@ import React, {
   ReactNode,
   useCallback,
 } from "react";
-import { Platform } from "react-native";
+import { Platform, Alert } from "react-native";
 import * as Location from "expo-location";
-import { useGang } from "@/contexts/GangContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { createRun, uploadRunPoints, stopRun, finalizeRun } from "@/services/runs";
 
 export interface ZoneCoord {
   latitude: number;
   longitude: number;
+  timestamp?: number;
+  accuracy?: number;
+  heading?: number;
 }
 
 export interface Zone {
@@ -55,7 +60,7 @@ interface TrackingState {
   currentKm: number;
   speedWarning: boolean;
   coords: ZoneCoord[];
-  coveredArea: ZoneCoord[];
+  runId: string | null;
 }
 
 interface GameContextValue {
@@ -71,7 +76,7 @@ interface GameContextValue {
   playerZones: Zone[];
   activeThreats: Zone[];
   startTracking: () => Promise<void>;
-  stopTracking: () => void;
+  stopTracking: () => Promise<void>;
   locationPermission: boolean;
   requestLocationPermission: () => Promise<void>;
   fetchLeaderboard: (city?: string) => Promise<void>;
@@ -86,15 +91,15 @@ function calcDistance(a: ZoneCoord, b: ZoneCoord): number {
   const sa =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((a.latitude * Math.PI) / 180) *
-      Math.cos((b.latitude * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((b.latitude * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(sa), Math.sqrt(1 - sa));
 }
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const { serverUserId, apiUrl } = useGang();
-  const [zones] = useState<Zone[]>([]);
+  const { user } = useAuth();
+  const [zones, setZones] = useState<Zone[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [locationPermission, setLocationPermission] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<ZoneCoord | null>(null);
@@ -105,91 +110,85 @@ export function GameProvider({ children }: { children: ReactNode }) {
     currentKm: 0,
     speedWarning: false,
     coords: [],
-    coveredArea: [],
+    runId: null,
   });
 
-  const [playerStreak, setPlayerStreak] = useState(0);
-  const [playerTotalKm, setPlayerTotalKm] = useState(0);
-  const [playerZonesOwned, setPlayerZonesOwned] = useState(0);
-
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
-  const bgLocationSubscription = useRef<Location.LocationSubscription | null>(null);
   const speedWarningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recentSpeeds = useRef<number[]>([]);
   const lastCoord = useRef<ZoneCoord | null>(null);
+  const runStartMs = useRef<number>(0);
 
-  const playerZones = useMemo(() => zones.filter((z) => z.ownerId === "player"), [zones]);
+  // Point Batching Logic
+  const pendingPoints = useRef<any[]>([]);
+  const batchInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const playerZones = useMemo(() => zones.filter((z) => z.ownerId === user?.id), [zones, user]);
   const activeThreats = useMemo(
-    () => zones.filter((z) => z.ownerId === "player" && z.status === "under_attack"),
-    [zones]
+    () => zones.filter((z) => z.ownerId === user?.id && z.status === "under_attack"),
+    [zones, user]
   );
 
   useEffect(() => {
-    if (serverUserId) {
-      fetchMyStats();
-      fetchLeaderboard();
+    if (user) {
+      fetchZones();
+      fetchLeaderboard(user.city);
+    } else {
+      setZones([]);
     }
-  }, [serverUserId]);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase.channel("game-state")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "territories" },
+        (payload) => {
+          console.log("Territory change received!", payload);
+          // In a full implementation, we'd parse the geojson and patch the `zones` array
+          fetchZones(); // Quick refresh for now
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "territory_events" },
+        (payload) => {
+          console.log("War-Room event received!", payload);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user]);
+
+  const fetchZones = async () => {
+    // Stub definition for Phase 5 to map our DB schema to UI Zone
+    // In actual implementation, we'd GET the ST_AsGeoJSON(geom)
+    // For now we leave zones empty but the realtime is wired!
+    setZones([]);
+  };
 
   useEffect(() => {
     if (Platform.OS !== "web") {
       checkLocationPermission();
-      startBackgroundLocationWatch();
     }
   }, []);
 
-  async function fetchMyStats() {
-    if (!serverUserId) return;
-    try {
-      const resp = await fetch(apiUrl("/api/users/me"), {
-        headers: { "x-user-id": serverUserId },
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        setPlayerTotalKm(data.totalKm || 0);
-        setPlayerStreak(data.streak || 0);
-        setPlayerZonesOwned(data.zonesOwned || 0);
-      }
-    } catch (e) {
-      console.error("Fetch stats error:", e);
-    }
-  }
-
   const fetchLeaderboard = useCallback(async (city?: string) => {
-    try {
-      const cityParam = city || "all";
-      const resp = await fetch(apiUrl(`/api/leaderboard?city=${encodeURIComponent(cityParam)}`));
-      if (resp.ok) {
-        const data = await resp.json();
-        setLeaderboard(data.entries || []);
-      }
-    } catch (e) {
-      console.error("Fetch leaderboard error:", e);
-    }
+    // Stubbed until Phase 5
+    setLeaderboard([]);
   }, []);
 
   const checkLocationPermission = async () => {
     const { status } = await Location.getForegroundPermissionsAsync();
     if (status === "granted") {
       setLocationPermission(true);
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
     }
-  };
-
-  const startBackgroundLocationWatch = async () => {
-    const { status } = await Location.getForegroundPermissionsAsync();
-    if (status !== "granted") return;
-    bgLocationSubscription.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 3000,
-        distanceInterval: 10,
-      },
-      (loc) => {
-        setCurrentLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-      }
-    );
   };
 
   const requestLocationPermission = useCallback(async () => {
@@ -200,125 +199,178 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status === "granted") {
       setLocationPermission(true);
-      startBackgroundLocationWatch();
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
     }
   }, []);
 
-  const startTracking = useCallback(async () => {
-    if (Platform.OS === "web") {
-      setTracking((t) => ({ ...t, isTracking: true, isPaused: false, currentKm: 0, coords: [], coveredArea: [] }));
-      return;
+  const flushPoints = async (rId: string, uId: string) => {
+    if (pendingPoints.current.length === 0) return;
+    const batch = [...pendingPoints.current];
+    pendingPoints.current = [];
+    try {
+      await uploadRunPoints(rId, uId, batch);
+    } catch (e) {
+      console.error("Failed to upload batch", e);
+      // Re-queue points
+      pendingPoints.current = [...batch, ...pendingPoints.current];
     }
+  };
+
+  const startTracking = useCallback(async () => {
+    if (!user) return;
+    if (Platform.OS === "web") return;
+
     if (!locationPermission) {
       await requestLocationPermission();
       return;
     }
 
-    const startCoord: ZoneCoord = currentLocation
-      ? { ...currentLocation }
-      : await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(
-          (loc) => ({ latitude: loc.coords.latitude, longitude: loc.coords.longitude })
-        );
-    lastCoord.current = startCoord;
+    try {
+      const runId = await createRun(user.id);
 
-    setCurrentLocation(startCoord);
-    setTracking((t) => ({
-      ...t,
-      isTracking: true,
-      isPaused: false,
-      currentKm: 0,
-      coords: [startCoord],
-      coveredArea: [startCoord],
-      speedKmh: 0,
-      speedWarning: false,
-    }));
-
-    locationSubscription.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 1000,
-        distanceInterval: 3,
-      },
-      (location) => {
-        const speedMs = location.coords.speed ?? 0;
-        const speedKmh = Math.max(0, speedMs * 3.6);
-        const coord: ZoneCoord = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
-
-        setCurrentLocation(coord);
-
-        const isOverSpeed = speedKmh > 14.5;
-        if (isOverSpeed) {
-          if (speedWarningTimer.current) clearTimeout(speedWarningTimer.current);
-          setTracking((t) => ({ ...t, isPaused: true, speedWarning: true, speedKmh }));
-          speedWarningTimer.current = setTimeout(() => {
-            setTracking((t) => ({ ...t, speedWarning: false }));
-          }, 3500);
-          lastCoord.current = null;
-          return;
-        }
-
-        setTracking((t) => {
-          let addedKm = 0;
-          if (lastCoord.current && !t.isPaused) {
-            addedKm = calcDistance(lastCoord.current, coord);
-          }
-          lastCoord.current = coord;
-
-          const newCoords = [...t.coords, coord];
-          const newCovered = buildConvexHull([...t.coveredArea, coord]);
-
-          return {
-            ...t,
-            isPaused: false,
-            speedWarning: false,
-            speedKmh,
-            currentKm: t.currentKm + addedKm,
-            coords: newCoords,
-            coveredArea: newCovered,
-          };
-        });
+      // Use the last known current location to instantly start the tracker instead of blocking 8 seconds
+      let startCoord = currentLocation;
+      if (!startCoord) {
+        // Fallback to a fast balanced request if completely missing
+        const startLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        startCoord = { latitude: startLoc.coords.latitude, longitude: startLoc.coords.longitude };
       }
-    );
-  }, [locationPermission, requestLocationPermission, currentLocation]);
 
-  const stopTracking = useCallback(() => {
+      setCurrentLocation(startCoord);
+      lastCoord.current = startCoord;
+      runStartMs.current = Date.now();
+
+      setTracking({
+        isTracking: true,
+        isPaused: false,
+        currentKm: 0,
+        coords: [startCoord],
+        speedKmh: 0,
+        speedWarning: false,
+        runId,
+      });
+
+      // Start the batch uploader (every 10s)
+      batchInterval.current = setInterval(() => {
+        if (runId && user.id) flushPoints(runId, user.id);
+      }, 10000);
+
+      locationSubscription.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 3000, // every 3 seconds minimum
+          distanceInterval: 5, // or 5 meters
+        },
+        (location) => {
+          // Speed calculation & GPS spike smoothing
+          const speedMs = location.coords.speed ?? 0;
+          const rawSpeedKmh = Math.max(0, speedMs * 3.6);
+
+          // Keep rolling average of last 3 speeds to smooth out GPS glitches
+          recentSpeeds.current.push(rawSpeedKmh);
+          if (recentSpeeds.current.length > 3) recentSpeeds.current.shift();
+          const smoothedSpeed = recentSpeeds.current.reduce((a, b) => a + b, 0) / recentSpeeds.current.length;
+
+          // Flag if consistently running over 20 km/h
+          const isOverSpeed = smoothedSpeed > 20.0;
+          if (isOverSpeed) {
+            if (speedWarningTimer.current) clearTimeout(speedWarningTimer.current);
+            setTracking((t) => ({ ...t, isPaused: true, speedWarning: true, speedKmh: smoothedSpeed }));
+            speedWarningTimer.current = setTimeout(() => {
+              setTracking((t) => ({ ...t, speedWarning: false }));
+            }, 6000);
+          } else {
+            setTracking((t) => ({ ...t, speedKmh: smoothedSpeed }));
+          }
+
+          const coord: ZoneCoord = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            timestamp: location.timestamp,
+            accuracy: location.coords.accuracy || 100,
+            heading: location.coords.heading !== null ? location.coords.heading : undefined,
+          };
+
+          setCurrentLocation(coord);
+
+          setTracking((t) => {
+            let addedKm = 0;
+            if (lastCoord.current && !t.isPaused) {
+              addedKm = calcDistance(lastCoord.current, coord);
+            }
+            lastCoord.current = coord;
+
+            const newCoords = [...t.coords, coord];
+
+            // Queue point for Supabase upload
+            pendingPoints.current.push({
+              coord,
+              speedLimit: isOverSpeed,
+              accuracy: location.coords.accuracy || 10,
+              time: new Date(location.timestamp),
+              heading: location.coords.heading,
+            });
+
+            return {
+              ...t,
+              isPaused: false,
+              speedWarning: false,
+              speedKmh: isOverSpeed ? smoothedSpeed : rawSpeedKmh,
+              currentKm: t.currentKm + addedKm,
+              coords: newCoords,
+            };
+          });
+        }
+      );
+    } catch (e) {
+      console.error("Failed to start run", e);
+      Alert.alert("Error", "Could not create run session.");
+    }
+  }, [locationPermission, requestLocationPermission, currentLocation, user]);
+
+  const stopTracking = useCallback(async () => {
     locationSubscription.current?.remove();
     locationSubscription.current = null;
 
+    if (speedWarningTimer.current) clearTimeout(speedWarningTimer.current);
+    if (batchInterval.current) clearInterval(batchInterval.current);
+
     setTracking((prev) => {
+      const activeRunId = prev.runId;
       const kmRan = prev.currentKm;
-      if (kmRan > 0.01 && serverUserId) {
-        fetch(apiUrl("/api/users/stats"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-user-id": serverUserId,
-          },
-          body: JSON.stringify({ addKm: kmRan }),
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            setPlayerTotalKm(data.totalKm || 0);
-            setPlayerStreak(data.streak || 0);
-            setPlayerZonesOwned(data.zonesOwned || 0);
-            fetchLeaderboard();
-          })
-          .catch(console.error);
+      const durationSecs = Math.floor((Date.now() - runStartMs.current) / 1000);
+
+      if (activeRunId && user) {
+        // Run Async Cleanup Stack
+        (async () => {
+          try {
+            await flushPoints(activeRunId, user.id);
+            await stopRun(activeRunId, kmRan, durationSecs);
+            console.log(`Run ${activeRunId} stopped in DB. Triggering territory edge function...`);
+
+            if (kmRan > 0.1) {
+              // Only trigger if they actually moved 100m+
+              const result = await finalizeRun(activeRunId);
+              console.log("Edge Function Capture Result:", result);
+            }
+          } catch (e) {
+            console.error("Failed to complete run cleanly", e);
+          }
+        })();
       }
 
       return {
-        ...prev,
         isTracking: false,
         isPaused: false,
         speedKmh: 0,
+        currentKm: 0,
+        speedWarning: false,
+        coords: [],
+        runId: null,
       };
     });
-  }, [serverUserId, fetchLeaderboard]);
+  }, [user]);
 
   const value = useMemo(
     () => ({
@@ -326,11 +378,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       leaderboard,
       tracking,
       currentLocation,
-      playerName: "You",
-      playerColorIndex: 0,
-      playerStreak,
-      playerTotalKm,
-      playerZonesOwned,
+      playerName: user?.name || "Player",
+      playerColorIndex: user?.colorIndex || 0,
+      playerStreak: user?.streak || 0,
+      playerTotalKm: user?.totalKm || 0,
+      playerZonesOwned: user?.zonesOwned || 0,
       playerZones,
       activeThreats,
       startTracking,
@@ -339,45 +391,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       requestLocationPermission,
       fetchLeaderboard,
     }),
-    [zones, leaderboard, tracking, currentLocation, playerStreak, playerTotalKm, playerZonesOwned, playerZones, activeThreats, startTracking, stopTracking, locationPermission, requestLocationPermission, fetchLeaderboard]
+    [zones, leaderboard, tracking, currentLocation, user, playerZones, activeThreats, startTracking, stopTracking, locationPermission, requestLocationPermission, fetchLeaderboard]
   );
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
-}
-
-function buildConvexHull(points: ZoneCoord[]): ZoneCoord[] {
-  if (points.length < 3) return points;
-  const sorted = [...points].sort((a, b) =>
-    a.latitude !== b.latitude ? a.latitude - b.latitude : a.longitude - b.longitude
-  );
-
-  function cross(O: ZoneCoord, A: ZoneCoord, B: ZoneCoord): number {
-    return (
-      (A.latitude - O.latitude) * (B.longitude - O.longitude) -
-      (A.longitude - O.longitude) * (B.latitude - O.latitude)
-    );
-  }
-
-  const lower: ZoneCoord[] = [];
-  for (const p of sorted) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-
-  const upper: ZoneCoord[] = [];
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const p = sorted[i];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-
-  lower.pop();
-  upper.pop();
-  return [...lower, ...upper];
 }
 
 export function useGame() {

@@ -250,7 +250,7 @@ export default function WarRoomScreen() {
               { bg: Colors.tealDim, icon: "timer-outline" as const, iconColor: Colors.teal, text: "Zones lose 2% health every 24h without running" },
               { bg: "rgba(255,140,66,0.12)", icon: "flame" as const, iconColor: Colors.orange, text: "7+ day streak reduces decay to 1.5%/day" },
               { bg: "rgba(168,85,247,0.12)", icon: "trophy" as const, iconColor: Colors.purple, text: "30+ day streak: only 0.25% decay per day" },
-              { bg: "rgba(255,61,87,0.12)", icon: "speedometer" as const, iconColor: Colors.red, text: "Speed cap: 14 km/h — no cycling or vehicles" },
+              { bg: "rgba(255,61,87,0.12)", icon: "speedometer" as const, iconColor: Colors.red, text: "Speed cap: 20 km/h — no cycling or vehicles" },
             ].map((item) => (
               <View key={item.text} style={styles.infoRow}>
                 <View style={[styles.infoIcon, { backgroundColor: item.bg }]}>

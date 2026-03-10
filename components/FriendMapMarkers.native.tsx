@@ -91,21 +91,6 @@ export default function FriendMapMarkers({ members }: { members: GangMember[] })
         const zc = ZoneColors[member.colorIndex];
         return (
           <React.Fragment key={member.id}>
-            {member.isRunning && member.runningPath.length > 1 && (
-              <>
-                <Polyline
-                  coordinates={member.runningPath}
-                  strokeColor={zc.stroke + "60"}
-                  strokeWidth={3}
-                  lineDashPattern={[8, 4]}
-                />
-                <Polyline
-                  coordinates={member.runningPath}
-                  strokeColor={zc.stroke + "18"}
-                  strokeWidth={12}
-                />
-              </>
-            )}
             <Marker
               coordinate={member.liveLocation!}
               anchor={{ x: 0.5, y: 0.5 }}

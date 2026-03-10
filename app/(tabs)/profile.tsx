@@ -82,7 +82,6 @@ const fcStyles = StyleSheet.create({
 function PlayerHeader() {
   const { playerStreak, playerTotalKm, playerZonesOwned } = useGame();
   const { user } = useAuth();
-  const { serverUserId, apiUrl } = useGang();
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const colorIndex = user?.colorIndex ?? 0;
   const zc = ZoneColors[colorIndex];
@@ -90,17 +89,13 @@ function PlayerHeader() {
   const city = user?.city ?? "Mumbai";
 
   React.useEffect(() => {
-    if (serverUserId) {
-      fetch(apiUrl("/api/users/me"), {
-        headers: { "x-user-id": serverUserId },
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.profilePicture) setProfilePic(data.profilePicture);
-        })
-        .catch(() => {});
+    if (user?.id) {
+      // Profile picture is loaded during AuthContext fetch natively now,
+      // but we check if we have it here, or just fetch if we added it to auth.
+      // For now just leave it null unless uploaded.
+      // No-op for now. 
     }
-  }, [serverUserId]);
+  }, [user]);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -118,15 +113,10 @@ function PlayerHeader() {
         : asset.uri;
       setProfilePic(uri);
 
-      if (serverUserId) {
-        fetch(apiUrl("/api/users/profile-picture"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-user-id": serverUserId,
-          },
-          body: JSON.stringify({ profilePicture: uri }),
-        }).catch(console.error);
+      if (user?.id) {
+        import("@/lib/supabase").then(({ supabase }) => {
+          supabase.from("profiles").update({ profile_picture: uri }).eq("id", user.id).then();
+        });
       }
     }
   };

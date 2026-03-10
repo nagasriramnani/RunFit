@@ -39,8 +39,8 @@ function LeaderRow({ entry, sortKey, isPlayer }: { entry: LeaderboardEntry; sort
     sortKey === "zones"
       ? `${entry.zonesOwned} zones`
       : sortKey === "km"
-      ? `${entry.totalKm.toFixed(1)} km`
-      : `${entry.streak}d streak`;
+        ? `${entry.totalKm.toFixed(1)} km`
+        : `${entry.streak}d streak`;
 
   return (
     <View style={[
@@ -96,7 +96,6 @@ function LeaderRow({ entry, sortKey, isPlayer }: { entry: LeaderboardEntry; sort
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { serverUserId } = useGang();
   const { leaderboard, fetchLeaderboard } = useGame();
   const [sortKey, setSortKey] = useState<SortKey>("km");
   const [selectedCity, setSelectedCity] = useState(user?.city || "All Cities");
@@ -169,7 +168,7 @@ export default function LeaderboardScreen() {
               {sorted.slice(0, 3).map((entry) => {
                 const zc = ZoneColors[entry.colorIndex % ZoneColors.length];
                 const heights = [88, 64, 56];
-                const isPlayer = entry.id === serverUserId;
+                const isPlayer = entry.id === user?.id;
                 return (
                   <View
                     key={entry.id}
@@ -206,7 +205,7 @@ export default function LeaderboardScreen() {
             <View style={styles.listSection}>
               <Text style={styles.listSectionTitle}>Full Rankings</Text>
               {sorted.map((entry) => (
-                <LeaderRow key={entry.id} entry={entry} sortKey={sortKey} isPlayer={entry.id === serverUserId} />
+                <LeaderRow key={entry.id} entry={entry} sortKey={sortKey} isPlayer={entry.id === user?.id} />
               ))}
             </View>
           </>

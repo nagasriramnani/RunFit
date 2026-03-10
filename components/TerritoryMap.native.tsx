@@ -161,7 +161,7 @@ export default function TerritoryMap() {
     currentLocation,
   } = useGame();
   const { user } = useAuth();
-  const { gangMembers, setBaseLocation, updateMyLocation } = useGang();
+  const { gangMembers, updateMyLocation } = useGang();
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -174,16 +174,30 @@ export default function TerritoryMap() {
 
   useEffect(() => {
     if (currentLocation) {
-      setBaseLocation(currentLocation);
       updateMyLocation(currentLocation.latitude, currentLocation.longitude, tracking.isTracking);
-      if (!didCenterOnUser.current && mapRef.current) {
-        didCenterOnUser.current = true;
-        mapRef.current.animateToRegion({
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
-          latitudeDelta: 0.04,
-          longitudeDelta: 0.04,
-        }, 1200);
+
+      if (mapRef.current) {
+        if (tracking.isTracking) {
+          // Pokemon GO style 3D tracking
+          const headingToUse = currentLocation.heading !== undefined ? currentLocation.heading : 0;
+          mapRef.current.animateCamera({
+            center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+            pitch: 60, // 3D tilt
+            heading: headingToUse, // Align with user's movement direction
+            zoom: 18.5, // Close zoom
+            altitude: 200,
+          }, { duration: 1200 });
+        } else if (!didCenterOnUser.current) {
+          // Standard top-down view on initial load
+          didCenterOnUser.current = true;
+          mapRef.current.animateCamera({
+            center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+            pitch: 0,
+            heading: 0,
+            zoom: 16,
+            altitude: 1000,
+          }, { duration: 1200 });
+        }
       }
     }
   }, [currentLocation, tracking.isTracking]);
@@ -192,15 +206,27 @@ export default function TerritoryMap() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (tracking.isTracking) {
       stopTracking();
+      // Reset camera to top-down view when stopping
+      if (currentLocation && mapRef.current) {
+        mapRef.current.animateCamera({
+          center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+          pitch: 0,
+          heading: 0,
+          zoom: 16,
+          altitude: 1000,
+        }, { duration: 1000 });
+      }
     } else {
       await startTracking();
       if (currentLocation && mapRef.current) {
-        mapRef.current.animateToRegion({
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.015,
-        }, 800);
+        const headingToUse = currentLocation.heading !== undefined ? currentLocation.heading : 0;
+        mapRef.current.animateCamera({
+          center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+          pitch: 60,
+          heading: headingToUse,
+          zoom: 18.5,
+          altitude: 200,
+        }, { duration: 1000 });
       }
     }
   };
@@ -208,12 +234,27 @@ export default function TerritoryMap() {
   const handleMyLocation = () => {
     if (currentLocation && mapRef.current) {
       Haptics.selectionAsync();
-      mapRef.current.animateToRegion({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      }, 800);
+
+      if (tracking.isTracking) {
+        // Return to 3D view if tracking
+        const headingToUse = currentLocation.heading !== undefined ? currentLocation.heading : 0;
+        mapRef.current.animateCamera({
+          center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+          pitch: 60,
+          heading: headingToUse,
+          zoom: 18.5,
+          altitude: 200,
+        }, { duration: 800 });
+      } else {
+        // Standard view if not tracking
+        mapRef.current.animateCamera({
+          center: { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+          pitch: 0,
+          heading: 0,
+          zoom: 16,
+          altitude: 1000,
+        }, { duration: 800 });
+      }
     }
   };
 
@@ -234,6 +275,8 @@ export default function TerritoryMap() {
         showsMyLocationButton={false}
         showsCompass={false}
         showsScale={false}
+        pitchEnabled={true}
+        rotateEnabled={true}
       >
         {zones.map((zone) => {
           const zc = ZoneColors[zone.colorIndex];

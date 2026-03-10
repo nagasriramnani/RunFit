@@ -5,11 +5,10 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
-  useRef,
   ReactNode,
 } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getApiUrl } from "@/lib/query-client";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 export interface MemberLocation {
   latitude: number;
@@ -23,11 +22,9 @@ export interface GangMember {
   zonesOwned: number;
   totalKm: number;
   streak: number;
-  joinedAt: number;
   isActive: boolean;
   isRunning: boolean;
   liveLocation: MemberLocation | null;
-  runningPath: MemberLocation[];
   profilePicture?: string | null;
 }
 
@@ -35,258 +32,190 @@ interface GangContextValue {
   gangName: string;
   gangMembers: GangMember[];
   isLoading: boolean;
-  serverUserId: string | null;
   myInviteCode: string | null;
   addMemberFromInvite: (code: string) => Promise<{ success: boolean; friendName?: string; error?: string }>;
   removeMember: (id: string) => void;
-  generateInviteCode: () => Promise<string>;
-  setBaseLocation: (loc: MemberLocation) => void;
-  registerUser: (name: string, email: string, city: string, colorIndex: number) => Promise<void>;
-  restoreUser: (id: string, inviteCode: string) => Promise<void>;
   updateMyLocation: (lat: number, lng: number, isTracking: boolean) => void;
   refreshFriends: () => Promise<void>;
-  apiUrl: (path: string) => string;
 }
 
 const GangContext = createContext<GangContextValue | null>(null);
-const SERVER_USER_KEY = "@daudlo_server_user";
-
-function apiUrl(path: string): string {
-  try {
-    const base = getApiUrl();
-    return new URL(path, base).toString();
-  } catch {
-    return `https://localhost:5000${path}`;
-  }
-}
 
 export function GangProvider({ children }: { children: ReactNode }) {
+  const { user, session } = useAuth();
   const [gangMembers, setGangMembers] = useState<GangMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [serverUserId, setServerUserId] = useState<string | null>(null);
-  const [myInviteCode, setMyInviteCode] = useState<string | null>(null);
-  const baseLocationRef = useRef<MemberLocation | null>(null);
-  const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const locationUpdateRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // We are keeping friends as an array for now
+  const [friendIds, setFriendIds] = useState<string[]>([]);
 
   useEffect(() => {
-    loadServerUser();
-  }, []);
-
-  useEffect(() => {
-    if (serverUserId) {
-      fetchFriends();
-      refreshIntervalRef.current = setInterval(fetchFriends, 5000);
+    if (user) {
+      loadFriendsList();
+    } else {
+      setGangMembers([]);
+      setFriendIds([]);
     }
-    return () => {
-      if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-    };
-  }, [serverUserId]);
+  }, [user]);
 
-  async function loadServerUser() {
-    try {
-      const raw = await AsyncStorage.getItem(SERVER_USER_KEY);
-      if (raw) {
-        const data = JSON.parse(raw);
-        setServerUserId(data.id);
-        setMyInviteCode(data.inviteCode);
-      }
-    } catch (e) {
-      console.error("Load server user error:", e);
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const loadFriendsList = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    // Grab all friendships where I am involved
+    const { data: friendships } = await supabase
+      .from("friendships")
+      .select("user_id, friend_id")
+      .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
 
-  const registerUser = useCallback(
-    async (name: string, email: string, city: string, colorIndex: number) => {
-      try {
-        const resp = await fetch(apiUrl("/api/users/register"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, city, colorIndex }),
-        });
-        if (!resp.ok) {
-          console.error("Register failed:", await resp.text());
-          return;
+    if (friendships) {
+      const ids = friendships.map(f => f.user_id === user.id ? f.friend_id : f.user_id);
+      setFriendIds(ids);
+
+      // Load static data
+      if (ids.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, username, color_index, streak, total_km, zones_owned, profile_picture")
+          .in("id", ids);
+
+        if (profiles) {
+          setGangMembers(
+            profiles.map(p => ({
+              id: p.id,
+              name: p.username,
+              colorIndex: p.color_index,
+              zonesOwned: p.zones_owned,
+              totalKm: p.total_km,
+              streak: p.streak,
+              isActive: false,  // Set by realtime presence
+              isRunning: false, // Set by realtime presence
+              liveLocation: null,
+              profilePicture: p.profile_picture,
+            }))
+          );
         }
-        const data = await resp.json();
-        setServerUserId(data.id);
-        setMyInviteCode(data.inviteCode);
-        await AsyncStorage.setItem(
-          SERVER_USER_KEY,
-          JSON.stringify({ id: data.id, inviteCode: data.inviteCode })
-        );
-      } catch (e) {
-        console.error("Register error:", e);
       }
-    },
-    []
-  );
-
-  const restoreUser = useCallback(
-    async (id: string, inviteCode: string) => {
-      setServerUserId(id);
-      setMyInviteCode(inviteCode);
-      await AsyncStorage.setItem(
-        SERVER_USER_KEY,
-        JSON.stringify({ id, inviteCode })
-      );
-    },
-    []
-  );
-
-  async function fetchFriends() {
-    if (!serverUserId) return;
-    try {
-      const resp = await fetch(apiUrl("/api/users/friends"), {
-        headers: { "x-user-id": serverUserId },
-      });
-      if (!resp.ok) return;
-      const data = await resp.json();
-      const now = Date.now();
-      const members: GangMember[] = (data.friends || []).map((f: any) => {
-        const isActive = f.isActive && now - f.lastSeen < 120000;
-        const isRunning = isActive && f.isTracking;
-        const hasLocation = f.lastLat != null && f.lastLng != null;
-        const liveLocation =
-          isActive && hasLocation
-            ? { latitude: f.lastLat, longitude: f.lastLng }
-            : null;
-        return {
-          id: f.id,
-          name: f.name,
-          colorIndex: f.colorIndex,
-          zonesOwned: f.zonesOwned || 0,
-          totalKm: f.totalKm || 0,
-          streak: f.streak || 0,
-          joinedAt: f.lastSeen || now,
-          isActive,
-          isRunning,
-          liveLocation,
-          runningPath: [],
-          profilePicture: f.profilePicture || null,
-        };
-      });
-      setGangMembers(members);
-    } catch (e) {
-      console.error("Fetch friends error:", e);
     }
-  }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    if (!user || !session) return;
+
+    // Subscribe to presence!
+    const channel = supabase.channel('gang-presence', {
+      config: {
+        presence: {
+          key: user.id
+        }
+      }
+    });
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const presenceState = channel.presenceState();
+
+      setGangMembers(curr => curr.map(member => {
+        // Did we get a presence state for this member?
+        const stateArray = presenceState[member.id];
+        if (stateArray && stateArray.length > 0) {
+          // Take the most recent/highest priority state
+          const latest: any = stateArray[0];
+          return {
+            ...member,
+            isActive: true,
+            isRunning: !!latest.isTracking,
+            liveLocation: latest.lat && latest.lng ? { latitude: latest.lat, longitude: latest.lng } : null
+          };
+        } else {
+          return {
+            ...member,
+            isActive: false,
+            isRunning: false,
+            liveLocation: null
+          };
+        }
+      }));
+    });
+
+    channel.subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user, session]);
 
   const refreshFriends = useCallback(async () => {
-    await fetchFriends();
-  }, [serverUserId]);
-
-  const setBaseLocation = useCallback((loc: MemberLocation) => {
-    baseLocationRef.current = loc;
-  }, []);
-
-  const generateInviteCode = useCallback(async (): Promise<string> => {
-    if (myInviteCode) return myInviteCode;
-    if (!serverUserId) return "Loading...";
-    try {
-      const resp = await fetch(apiUrl("/api/users/invite-code"), {
-        headers: { "x-user-id": serverUserId },
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        setMyInviteCode(data.inviteCode);
-        return data.inviteCode;
-      }
-    } catch (e) {
-      console.error("Get invite code error:", e);
-    }
-    return myInviteCode || "Error";
-  }, [serverUserId, myInviteCode]);
+    await loadFriendsList();
+  }, [user]);
 
   const addMemberFromInvite = useCallback(
     async (code: string): Promise<{ success: boolean; friendName?: string; error?: string }> => {
-      if (!serverUserId) return { success: false, error: "Not registered yet" };
-      try {
-        const resp = await fetch(apiUrl("/api/users/join"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-user-id": serverUserId,
-          },
-          body: JSON.stringify({ code: code.trim() }),
-        });
-        const data = await resp.json();
-        if (!resp.ok) {
-          return { success: false, error: data.error || "Failed to join" };
-        }
-        await fetchFriends();
-        return { success: true, friendName: data.friend?.name };
-      } catch (e: any) {
-        console.error("Join error:", e);
-        return { success: false, error: e.message || "Network error" };
+      if (!user) return { success: false, error: "Not logged in" };
+
+      const { data: friendProfile, error } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .eq("invite_code", code.trim())
+        .single();
+
+      if (error || !friendProfile) return { success: false, error: "Invalid code" };
+      if (friendProfile.id === user.id) return { success: false, error: "Cannot add yourself" };
+
+      const { error: insertErr } = await supabase
+        .from("friendships")
+        .insert({ user_id: user.id, friend_id: friendProfile.id });
+
+      if (insertErr && !insertErr.message.includes("duplicate key")) {
+        return { success: false, error: "Failed to add friend" };
       }
+
+      await loadFriendsList();
+      return { success: true, friendName: friendProfile.username };
     },
-    [serverUserId]
+    [user]
   );
 
   const removeMember = useCallback(
-    (id: string) => {
-      if (!serverUserId) return;
+    async (id: string) => {
+      if (!user) return;
       setGangMembers((prev) => prev.filter((m) => m.id !== id));
-      fetch(apiUrl(`/api/users/friends/${id}`), {
-        method: "DELETE",
-        headers: { "x-user-id": serverUserId },
-      }).catch(console.error);
+
+      await supabase
+        .from("friendships")
+        .delete()
+        .or(`and(user_id.eq.${user.id},friend_id.eq.${id}),and(user_id.eq.${id},friend_id.eq.${user.id})`);
     },
-    [serverUserId]
+    [user]
   );
 
   const updateMyLocation = useCallback(
     (lat: number, lng: number, isTracking: boolean) => {
-      if (!serverUserId) return;
-      if (locationUpdateRef.current) clearTimeout(locationUpdateRef.current);
-      locationUpdateRef.current = setTimeout(() => {
-        fetch(apiUrl("/api/users/location"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-user-id": serverUserId,
-          },
-          body: JSON.stringify({ latitude: lat, longitude: lng, isTracking }),
-        }).catch(console.error);
-      }, 500);
+      if (!user) return;
+
+      // We will broadcast our location via Supabase Realtime Track
+      supabase.channel('gang-presence').track({
+        id: user.id,
+        lat,
+        lng,
+        isTracking,
+        updatedAt: new Date().toISOString() // Force state change
+      });
     },
-    [serverUserId]
+    [user]
   );
 
   const value = useMemo(
     () => ({
-      gangName: "My Gang",
+      gangName: "My Crew",
       gangMembers,
       isLoading,
-      serverUserId,
-      myInviteCode,
+      myInviteCode: user?.inviteCode || "Loading...",
       addMemberFromInvite,
       removeMember,
-      generateInviteCode,
-      setBaseLocation,
-      registerUser,
-      restoreUser,
       updateMyLocation,
       refreshFriends,
-      apiUrl,
     }),
-    [
-      gangMembers,
-      isLoading,
-      serverUserId,
-      myInviteCode,
-      addMemberFromInvite,
-      removeMember,
-      generateInviteCode,
-      setBaseLocation,
-      registerUser,
-      restoreUser,
-      updateMyLocation,
-      refreshFriends,
-    ]
+    [gangMembers, isLoading, user, addMemberFromInvite, removeMember, updateMyLocation, refreshFriends]
   );
 
   return <GangContext.Provider value={value}>{children}</GangContext.Provider>;

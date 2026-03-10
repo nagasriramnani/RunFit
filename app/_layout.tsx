@@ -21,20 +21,16 @@ SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
   const { user, isLoading } = useAuth();
-  const { serverUserId, registerUser, isLoading: gangLoading } = useGang();
 
   useEffect(() => {
-    if (!isLoading && !gangLoading) {
+    if (!isLoading) {
       if (user) {
-        if (!serverUserId) {
-          registerUser(user.name, user.email, user.city, user.colorIndex);
-        }
         router.replace("/(tabs)");
       } else {
         router.replace("/login");
       }
     }
-  }, [user, isLoading, gangLoading, serverUserId]);
+  }, [user, isLoading]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

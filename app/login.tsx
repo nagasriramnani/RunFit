@@ -16,9 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/contexts/AuthContext";
-import { useGang } from "@/contexts/GangContext";
 import { Colors, ZoneColors } from "@/constants/colors";
-import { getApiUrl } from "@/lib/query-client";
 
 const CITIES = [
   "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai",
@@ -58,17 +56,25 @@ function AnimatedColorDot({ index, selected, onPress }: {
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { signIn, signInExisting } = useAuth();
-  const { restoreUser } = useGang();
+  const { signUp, signIn } = useAuth();
+
   const [step, setStep] = useState<"welcome" | "signup" | "login">("welcome");
+
+  // Signup State
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [loginEmail, setLoginEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [selectedCity, setSelectedCity] = useState("Mumbai");
   const [selectedColor, setSelectedColor] = useState(0);
   const [nameError, setNameError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  // Login State
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -88,6 +94,7 @@ export default function LoginScreen() {
     setLoginError("");
     setNameError("");
     setEmailError("");
+    setPasswordError("");
     slideAnim.setValue(0);
   };
 
@@ -105,17 +112,21 @@ export default function LoginScreen() {
     } else {
       setEmailError("");
     }
+    if (!password || password.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+      valid = false;
+    } else {
+      setPasswordError("");
+    }
+
     if (!valid) return;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsLoading(true);
     try {
-      await signIn({
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        city: selectedCity,
-        colorIndex: selectedColor,
-      });
+      await signUp(email, password, name, selectedCity, selectedColor);
+    } catch (e: any) {
+      setEmailError(e.message || "Signup failed");
     } finally {
       setIsLoading(false);
     }
@@ -123,41 +134,21 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!loginEmail.trim() || !loginEmail.includes("@")) {
-      setLoginError("Enter the email you signed up with");
+      setLoginError("Enter a valid email");
       return;
     }
+    if (!loginPassword) {
+      setLoginError("Enter your password");
+      return;
+    }
+
     setLoginError("");
     setIsLoading(true);
     try {
-      const base = getApiUrl();
-      const url = new URL("/api/users/login", base).toString();
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: loginEmail.trim().toLowerCase() }),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        if (data.error === "no_account") {
-          setLoginError("No account found with this email. Try signing up instead.");
-        } else {
-          setLoginError("Something went wrong. Please try again.");
-        }
-        return;
-      }
-      const data = await resp.json();
+      await signIn(loginEmail, loginPassword);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await restoreUser(data.id, data.inviteCode);
-      await signInExisting({
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        city: data.city,
-        colorIndex: data.colorIndex,
-        joinedAt: Date.now(),
-      });
-    } catch (e) {
-      setLoginError("Could not connect to server. Check your connection.");
+    } catch (e: any) {
+      setLoginError(e.message || "Invalid credentials. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -258,13 +249,13 @@ export default function LoginScreen() {
               <Ionicons name="person" size={36} color={Colors.teal} />
             </View>
             <Text style={styles.profileHeaderTitle}>Welcome Back</Text>
-            <Text style={styles.profileHeaderSub}>Enter the email you signed up with to restore your account</Text>
+            <Text style={styles.profileHeaderSub}>Log in to continue conquering operations</Text>
           </View>
 
           <View style={styles.formSection}>
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>YOUR EMAIL</Text>
-              <View style={[styles.inputWrapper, loginError ? styles.inputError : null]}>
+              <View style={[styles.inputWrapper, loginError && !loginPassword ? styles.inputError : null]}>
                 <Ionicons name="mail-outline" size={18} color={Colors.text2} />
                 <TextInput
                   style={styles.input}
@@ -274,9 +265,25 @@ export default function LoginScreen() {
                   placeholderTextColor={Colors.text3}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  returnKeyType="next"
+                  autoFocus
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>PASSWORD</Text>
+              <View style={[styles.inputWrapper, loginError && loginPassword ? styles.inputError : null]}>
+                <Ionicons name="lock-closed-outline" size={18} color={Colors.text2} />
+                <TextInput
+                  style={styles.input}
+                  value={loginPassword}
+                  onChangeText={(t) => { setLoginPassword(t); setLoginError(""); }}
+                  placeholder="******"
+                  placeholderTextColor={Colors.text3}
+                  secureTextEntry
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
-                  autoFocus
                 />
               </View>
               {!!loginError && <Text style={styles.errorText}>{loginError}</Text>}
@@ -378,10 +385,27 @@ export default function LoginScreen() {
                 placeholderTextColor={Colors.text3}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                returnKeyType="done"
+                returnKeyType="next"
               />
             </View>
             {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>PASSWORD</Text>
+            <View style={[styles.inputWrapper, passwordError ? styles.inputError : null]}>
+              <Ionicons name="lock-closed-outline" size={18} color={Colors.text2} />
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={(t) => { setPassword(t); setPasswordError(""); }}
+                placeholder="******"
+                placeholderTextColor={Colors.text3}
+                secureTextEntry
+                returnKeyType="done"
+              />
+            </View>
+            {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
@@ -455,7 +479,7 @@ export default function LoginScreen() {
 
         <TouchableOpacity
           style={styles.switchAuthBtn}
-          onPress={() => { setStep("login"); setNameError(""); setEmailError(""); }}
+          onPress={() => { setStep("login"); setNameError(""); setEmailError(""); setPasswordError(""); }}
         >
           <Text style={styles.switchAuthText}>
             Already have an account? <Text style={styles.switchAuthLink}>Login</Text>

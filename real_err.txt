@@ -1,0 +1,9 @@
+NOTICE:  --- RUNNING TESTS ---
+NOTICE:  1. User 1 Straight Line Validation: {"is_valid" : true, "reason" : null, "point_count" : 15, "filtered_point_count" : 15, "duration_seconds" : 140, "distance_m" : 701.31, "max_speed_mps" : 5.01, "suspicious_segment_count" : 0}
+ERROR:  insert or update on table "territory_events" violates foreign key constraint "territory_events_territory_id_fkey"
+DETAIL:  Key (territory_id)=(ede5c995-c0ad-425f-bd2c-0f0f211e7a4f) is not present in table "territories".
+CONTEXT:  SQL statement "INSERT INTO territory_events (territory_id, attacker_id, defender_id, event_type, damage_amount)
+            VALUES (v_enemy.id, p_user_id, v_enemy.owner_id, 'ruin', v_damage)"
+PL/pgSQL function process_run_territory(uuid,uuid) line 59 at SQL statement
+SQL statement "SELECT process_run_territory(v_run_enemy, v_user_1)"
+PL/pgSQL function inline_code_block line 39 at SQL statement

@@ -232,7 +232,7 @@ const jStyles = StyleSheet.create({
 });
 
 export default function InvitePanel({ visible, onClose, topOffset }: Props) {
-  const { generateInviteCode } = useGang();
+  const { myInviteCode } = useGang();
   const [activeTab, setActiveTab] = useState<Tab>("invite");
   const [stage, setStage] = useState<Stage>("loading");
   const [inviteLink, setInviteLink] = useState("");
@@ -255,16 +255,15 @@ export default function InvitePanel({ visible, onClose, topOffset }: Props) {
         }),
       ]).start();
 
-      generateInviteCode().then((code) => {
-        setTimeout(() => {
-          setInviteLink(code);
-          setStage("ready");
-          Animated.spring(linkAnim, {
-            toValue: 1, tension: 180, friction: 18, useNativeDriver: true,
-          }).start();
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }, 2200);
-      });
+      // Emulate generation delay for UX effect
+      setTimeout(() => {
+        setInviteLink(myInviteCode || "ERROR_NO_CODE");
+        setStage("ready");
+        Animated.spring(linkAnim, {
+          toValue: 1, tension: 180, friction: 18, useNativeDriver: true,
+        }).start();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }, 1500);
     } else {
       Animated.parallel([
         Animated.timing(slideAnim, {
@@ -295,21 +294,21 @@ export default function InvitePanel({ visible, onClose, topOffset }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await Share.share({ message: buildShareText() });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const shareFacebook = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await Share.share({ message: buildShareText() });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const shareNative = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await Share.share({ message: buildShareText() });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   if (!visible) return null;

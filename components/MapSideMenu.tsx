@@ -176,7 +176,7 @@ export default function MapSideMenu({ visible, onClose, onAddFriend }: Props) {
   if (!rendered) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={visible ? "auto" : "none"}>
+    <View style={[StyleSheet.absoluteFill, { zIndex: 100 }]} pointerEvents={visible ? "auto" : "none"}>
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={() => {
